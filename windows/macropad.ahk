@@ -34,6 +34,24 @@ F13::
 }
 
 ;------------------------------------------------------------------------------
+; F19
+;------------------------------------------------------------------------------
+F19::
+{
+    ; Procedure
+    openWindowsTerminalPowershellAdministrator()
+}
+
+;------------------------------------------------------------------------------
+; F20
+;------------------------------------------------------------------------------
+F20::
+{
+    ; Procedure
+    openWindowsTerminalCommandPromptAdministrator()
+}
+
+;------------------------------------------------------------------------------
 ; F21
 ;------------------------------------------------------------------------------
 F21::
@@ -66,7 +84,6 @@ F23::
 F24::
 {
     ; Procedure
-    findAndRunPremake()
 }
 
 ;------------------------------------------------------------------------------
@@ -93,6 +110,17 @@ openWindowsTerminalPowershell()
 }
 
 ;------------------------------------------------------------------------------
+; @procedure Open Windows Terminal Powershell (Administrator)
+; @function  openWindowsTerminalPowershellAdministrator()
+;------------------------------------------------------------------------------
+openWindowsTerminalPowershellAdministrator()
+{
+    targetPath := directorySelectWithTooltipLoop("Powershell (Admin): ")
+    command := 'wt.exe -p "Powershell" -d ' targetPath
+    Run("*RunAs " . command)
+}
+
+;------------------------------------------------------------------------------
 ; @procedure Open Windows Terminal Command Prompt
 ; @function  openWindowsTerminalCommandPrompt()
 ;------------------------------------------------------------------------------
@@ -100,6 +128,17 @@ openWindowsTerminalCommandPrompt()
 {
     targetPath := directorySelectWithTooltipLoop("Command Prompt: ")
     Run('wt.exe -p "Command Prompt" -d ' targetPath)
+}
+
+;------------------------------------------------------------------------------
+; @procedure Open Windows Terminal Command Prompt (Administrator)
+; @function  openWindowsTerminalCommandPrompt()
+;------------------------------------------------------------------------------
+openWindowsTerminalCommandPromptAdministrator()
+{
+    targetPath := directorySelectWithTooltipLoop("Command Prompt (Admin): ")
+    command := 'wt.exe -p "Command Prompt" -d ' targetPath
+    Run("*RunAs " . command)
 }
 
 ;------------------------------------------------------------------------------
