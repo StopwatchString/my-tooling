@@ -15,8 +15,6 @@
 
 #Requires AutoHotkey v2.0
 
-KEY_STATE_CHECK_SLEEP_TIME_MS := 10
-
 ;==============================================================================
 ; HOTKEY ASSIGNMENT
 ;==============================================================================
@@ -29,11 +27,9 @@ F13::
     ; Key handling
     KeyWait(A_ThisHotkey) ; Only execute when key is released to stop spam
 
-    ToolTip("Reloading script...")
-
-    Sleep(300)
-
     ; Procedure
+    ToolTip("Reloading script...")
+    Sleep(300)
     Reload
 }
 
@@ -70,7 +66,7 @@ F23::
 F24::
 {
     ; Procedure
-    openCmakeGui()
+    findAndRunPremake()
 }
 
 ;------------------------------------------------------------------------------
@@ -92,13 +88,7 @@ vkC1::
 ;------------------------------------------------------------------------------
 openWindowsTerminalPowershell()
 {
-    targetPath := ""
-    while (GetKeyState(A_ThisHotkey)) {
-        targetPath := detectTargetDirectory()
-        ToolTip("Powershell: " targetPath)
-        Sleep(KEY_STATE_CHECK_SLEEP_TIME_MS)
-    }
-    ToolTip("")
+    targetPath := directorySelectWithTooltipLoop("Powershell: ")
     Run('wt.exe -p "Powershell" -d ' targetPath)
 }
 
@@ -108,13 +98,7 @@ openWindowsTerminalPowershell()
 ;------------------------------------------------------------------------------
 openWindowsTerminalCommandPrompt()
 {
-    targetPath := ""
-    while (GetKeyState(A_ThisHotkey)) {
-        targetPath := detectTargetDirectory()
-        ToolTip("Command Prompt: " targetPath)
-        Sleep(KEY_STATE_CHECK_SLEEP_TIME_MS)
-    }
-    ToolTip("")
+    targetPath := directorySelectWithTooltipLoop("Command Prompt: ")
     Run('wt.exe -p "Command Prompt" -d ' targetPath)
 }
 
@@ -125,16 +109,13 @@ openWindowsTerminalCommandPrompt()
 ;------------------------------------------------------------------------------
 openCmakeGui()
 {
-    explorerPath := getExplorerDirectory()
-    if explorerPath != "" {
-        if isFileInDirectory("CMakeLists.txt", explorerPath) {
-            buildPath := explorerPath . "\build"
-            Run('powershell cmake-gui -S ' . explorerPath . ' -B ' . buildPath)
-        } else {
-            MsgBox("No CMakeLists.txt detected.")
-        }
+    targetPath := directorySelectWithTooltipLoop("CMakeLists.txt Directory: ")
+
+    if isFileInDirectory("CMakeLists.txt", targetPath) {
+        buildPath := targetPath . "\build"
+        Run('powershell cmake-gui -S ' . targetPath . ' -B ' . buildPath)
     } else {
-        MsgBox("openCmakeGui() Did not detect an active Explorer window.")
+        MsgBox("No CMakeLists.txt detected.")
     }
 }
 
@@ -151,7 +132,7 @@ openCmakeGui()
 ;------------------------------------------------------------------------------
 findAndRunPremake()
 {
-    
+    ; TODO
 }
 
 ;------------------------------------------------------------------------------
@@ -164,7 +145,7 @@ findAndRunPremake()
 ;------------------------------------------------------------------------------
 openVsCodeFolderMode()
 {
-    targetPath := detectTargetDirectory()
+    targetPath := directorySelectWithTooltipLoop("VS Code: ")
     Run('powershell -NoProfile -Command "Start-Process code -ArgumentList ' targetPath '"')
 }
 
@@ -190,6 +171,28 @@ detectTargetDirectory()
     }
 
     return targetPath
+}
+
+;------------------------------------------------------------------------------
+; @function directorySelectWithTooltipLoop()
+; @details  While the current hotkey remains held, periodically grab the target
+;           target directory from detectTargetDirectory() and display it in
+;           the cursor tooltip. When the key is released, return the current
+;           target directory.
+; @param    stringPrefix: Prefix for tooltip
+; @return   Final selected target directory as a string
+;------------------------------------------------------------------------------
+directorySelectWithTooltipLoop(stringPrefix)
+{
+    static KEY_STATE_CHECK_SLEEP_TIME_MS := 10
+    targetDirectory := ""
+    while (GetKeyState(A_ThisHotkey)) {
+        targetDirectory := detectTargetDirectory()
+        ToolTip(stringPrefix . targetDirectory)
+        Sleep(KEY_STATE_CHECK_SLEEP_TIME_MS)
+    }
+    ToolTip("")
+    return targetDirectory
 }
 
 ;------------------------------------------------------------------------------
