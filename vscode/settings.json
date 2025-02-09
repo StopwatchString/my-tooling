@@ -1,0 +1,34 @@
+{
+    "editor.inlineSuggest.suppressSuggestions": true,
+    "security.workspace.trust.untrustedFiles": "open",
+    "terminal.integrated.profiles.windows": {
+        "PowerShell": {
+            "source": "PowerShell",
+            "icon": "terminal-powershell"
+        },
+        "Command Prompt": {
+            "path": [
+                "${env:windir}\\Sysnative\\cmd.exe",
+                "${env:windir}\\System32\\cmd.exe"
+            ],
+            "args": [],
+            "icon": "terminal-cmd"
+        },
+        "Git Bash": {
+            "source": "Git Bash"
+        }
+    },
+    "editor.renderWhitespace": "all",
+    "explorer.confirmDragAndDrop": false,
+    "security.restrictUNCAccess": false,
+    "git.openRepositoryInParentFolders": "never",
+    "workbench.activityBar.location": "top",
+    "cmake.showOptionsMovedNotification": false,
+    "workbench.startupEditor": "none",
+    "editor.rulers": [
+        80, 120
+    ],
+    "workbench.colorCustomizations": {
+        "editorRuler.foreground": "#2b292a"
+    }
+}
