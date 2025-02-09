@@ -1,44 +1,233 @@
+;------------------------------------------------------------------------------
+; @file    macropad.ahk
+; @author  Mason Speck (Github: StopwatchString)
+; @brief   Autohotkey script for Macropad functionality
+; @details This file is separated into 3 parts:
+;          1) Hotkey assignment: These functions should implement only
+;             procedure calling, so that hotkey reassignment is easy.
+;          2) Procedures: These are the actual functionality expected out of
+;             the hotkey. These are self-contained behaviors that are easily
+;             moved between hotkeys.
+;          3) Helper functions: Meta functions that are callable by any
+;             procedure. Hotkey assignment functions should never have a
+;             reason to call these.
+;------------------------------------------------------------------------------
+
 #Requires AutoHotkey v2.0
 
+KEY_STATE_CHECK_SLEEP_TIME_MS := 10
+
+;==============================================================================
+; HOTKEY ASSIGNMENT
+;==============================================================================
+
+;------------------------------------------------------------------------------
+; F13
+;------------------------------------------------------------------------------
+F13::
+{
+    ; Key handling
+    KeyWait(A_ThisHotkey) ; Only execute when key is released to stop spam
+
+    ToolTip("Reloading script...")
+
+    Sleep(300)
+
+    ; Procedure
+    Reload
+}
+
+;------------------------------------------------------------------------------
+; F21
+;------------------------------------------------------------------------------
+F21::
+{
+    ; Procedure
+    openCmakeGui()
+}
+
+;------------------------------------------------------------------------------
+; F22
+;------------------------------------------------------------------------------
 F22::
 {
-    KeyWait(A_ThisHotkey)
-    targetPath := GetTargetPath()
+    ; Procedure
+    openWindowsTerminalPowershell()
+}
+
+;------------------------------------------------------------------------------
+; F23
+;------------------------------------------------------------------------------
+F23::
+{
+    ; Procedure
+    openWindowsTerminalCommandPrompt()
+}
+
+;------------------------------------------------------------------------------
+; F24
+;------------------------------------------------------------------------------
+F24::
+{
+    ; Procedure
+    openCmakeGui()
+}
+
+;------------------------------------------------------------------------------
+; vkC1
+;------------------------------------------------------------------------------
+vkC1::
+{
+    ; Procedure
+    openVsCodeFolderMode()
+}
+
+;==============================================================================
+; PROCEDURES
+;==============================================================================
+
+;------------------------------------------------------------------------------
+; @procedure Open Windows Terminal Powershell
+; @function  openWindowsTerminalPowershell()
+;------------------------------------------------------------------------------
+openWindowsTerminalPowershell()
+{
+    targetPath := ""
+    while (GetKeyState(A_ThisHotkey)) {
+        targetPath := detectTargetDirectory()
+        ToolTip("Powershell: " targetPath)
+        Sleep(KEY_STATE_CHECK_SLEEP_TIME_MS)
+    }
+    ToolTip("")
     Run('wt.exe -p "Powershell" -d ' targetPath)
 }
 
-F23::
+;------------------------------------------------------------------------------
+; @procedure Open Windows Terminal Command Prompt
+; @function  openWindowsTerminalCommandPrompt()
+;------------------------------------------------------------------------------
+openWindowsTerminalCommandPrompt()
 {
-    KeyWait(A_ThisHotkey)
-    targetPath := GetTargetPath()
+    targetPath := ""
+    while (GetKeyState(A_ThisHotkey)) {
+        targetPath := detectTargetDirectory()
+        ToolTip("Command Prompt: " targetPath)
+        Sleep(KEY_STATE_CHECK_SLEEP_TIME_MS)
+    }
+    ToolTip("")
     Run('wt.exe -p "Command Prompt" -d ' targetPath)
 }
 
-; F24::
-; {
-; 	Run 'cmder.exe /c C:\\dev\\'
-; }
-
-vkC1::
+;------------------------------------------------------------------------------
+; @procedure Open CMAKE Gui with local CMakeLists.txt
+; @function  openCmakeGui()
+; @details   Attempts to find a CMakeLists.txt 
+;------------------------------------------------------------------------------
+openCmakeGui()
 {
-    KeyWait(A_ThisHotkey)
-    targetPath := GetTargetPath()
-    Run ('powershell -NoProfile -Command "Start-Process code -ArgumentList ' targetPath '"')
+    explorerPath := getExplorerDirectory()
+    if explorerPath != "" {
+        if isFileInDirectory("CMakeLists.txt", explorerPath) {
+            buildPath := explorerPath . "\build"
+            Run('powershell cmake-gui -S ' . explorerPath . ' -B ' . buildPath)
+        } else {
+            MsgBox("No CMakeLists.txt detected.")
+        }
+    } else {
+        MsgBox("openCmakeGui() Did not detect an active Explorer window.")
+    }
 }
 
-GetTargetPath() {
-    ; Default to C:\dev\
+;------------------------------------------------------------------------------
+; @procedure Search for a local premake5.lua and execute it with premake.
+;            Includes confirmation dialogue that names the path.
+; @function  findAndRunPremake()
+; @details   Attempts to find a premake5.lua and run premake against it.
+;            This procedure only works if an active explorer folder can be
+;            found. This explorer folder is recursively searched for a
+;            premake file. If found, then a confirmation dialogue will pop
+;            up asking if it's the correct premake file. If confirmed,
+;            premake will be ran. Otherwise nothing happens.
+;------------------------------------------------------------------------------
+findAndRunPremake()
+{
+    
+}
+
+;------------------------------------------------------------------------------
+; @procedure Open VSCode in Folder Mode
+; @function  openVsCodeFolderMode()
+; @details   Opens VSCode in folder mode, with two possible scenarios:
+;            1) If an explorer-type window is active with a folder path, then
+;               open VSCode in that folder.
+;            2) Otherwise, default to C:\dev\
+;------------------------------------------------------------------------------
+openVsCodeFolderMode()
+{
+    targetPath := detectTargetDirectory()
+    Run('powershell -NoProfile -Command "Start-Process code -ArgumentList ' targetPath '"')
+}
+
+;==============================================================================
+; HELPER FUNCTIONS
+;==============================================================================
+
+;------------------------------------------------------------------------------
+; @function detectTargetDirectory()
+; @details  Attempt to intelligently pick a target directory based on state
+;           Autohotkey can read, such as current active window. Defaults to
+;           C:\dev\ if no target is found.
+; @return   Target path as a string
+;------------------------------------------------------------------------------
+detectTargetDirectory()
+{
     targetPath := "C:\\dev\\"
 
     ; Try to intelligently determine path from active window
+    explorerPath := getExplorerDirectory()
+    if explorerPath != "" {
+        targetPath := explorerPath
+    }
+
+    return targetPath
+}
+
+;------------------------------------------------------------------------------
+; @function getExplorerDirectory()
+; @details  Checks if a CabinetWClass or ExplorerWClass window is active, and
+;           if so will attempt to retreive the associated path.
+; @return   Explorer path as string if detected, otherwise empty string.
+;------------------------------------------------------------------------------
+getExplorerDirectory()
+{
+    explorerPath := ""
     if WinActive("ahk_class CabinetWClass") || WinActive("ahk_class ExplorerWClass") {
         shell := ComObject("Shell.Application")
         for window in shell.Windows {
             if window.hwnd = WinActive("A") { ; Get the active Explorer window
-                targetPath := window.Document.Folder.Self.Path
+                explorerPath := window.Document.Folder.Self.Path
             }
         }
     }
+    return explorerPath
+}
 
-    return targetPath
+;------------------------------------------------------------------------------
+; @function isFileInDirectory()
+; @details  Checks if a CabinetWClass or ExplorerWClass window is active, and
+;           if so will attempt to retreive the associated path.
+; @return   True if file is contained in the found directory.
+;------------------------------------------------------------------------------
+isFileInDirectory(fileName, directoryPath)
+{
+    ; Ensure the directory exists
+    if !DirExist(directoryPath) {
+        return false
+    }
+
+    ; Construct full file path
+    filePath := directoryPath "\" fileName
+
+    ; Check if the file exists
+    return FileExist(filePath)
 }
