@@ -24,11 +24,11 @@
     "git.openRepositoryInParentFolders": "never",
     "workbench.activityBar.location": "top",
     "cmake.showOptionsMovedNotification": false,
-    "workbench.startupEditor": "none",
+    "workbench.startupEditor": "readme",
     "editor.rulers": [
         80, 120
     ],
     "workbench.colorCustomizations": {
         "editorRuler.foreground": "#2b292a"
-    }
+    },
 }
