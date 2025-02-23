@@ -185,7 +185,8 @@ findAndRunPremake()
 openVsCodeFolderMode()
 {
     targetPath := directorySelectWithTooltipLoop("VS Code: ")
-    Run('powershell -NoProfile -Command "Start-Process code -ArgumentList ' targetPath '"')
+
+    Run('powershell -NoProfile -Command `"Start-Process code -ArgumentList `'\' targetPath '\`"`'' )
 }
 
 ;==============================================================================
@@ -231,7 +232,7 @@ directorySelectWithTooltipLoop(stringPrefix)
         Sleep(KEY_STATE_CHECK_SLEEP_TIME_MS)
     }
     ToolTip("")
-    return targetDirectory
+    return '"' targetDirectory '"'
 }
 
 ;------------------------------------------------------------------------------
