@@ -22,10 +22,16 @@ set(PRIVATE_HEADERS
 )
 set(PUBLIC_HEADERS
     ${CMAKE_SOURCE_DIR}/include/PublicComponent.hpp
+    ${CMAKE_SOURCE_DIR}/include/pubincl/TestComponentaa.hpp
 )
-
-# ------------- PROJECT INTERFACE -------------
-# TODO:: Break includes into interface
+# List all GTest files here
+# Generally every hpp/cpp combo should have a matching [filename].test.cpp.
+# Header-only should also receive test files.
+set(TEST_SOURCES
+    ${CMAKE_SOURCE_DIR}/src/Component.test.cpp
+    ${CMAKE_SOURCE_DIR}/src/namespace/SubComponent.test.cpp
+    ${CMAKE_SOURCE_DIR}/src/PublicComponent.test.cpp
+)
 
 # -------------- PROJECT LIBRARY --------------
 # Create linkable library from project files
@@ -41,28 +47,14 @@ target_include_directories(
 ## External project linkage would go here
 
 # ------------- PROJECT EXECUTABLE -------------
-add_executable(${TARGET_NAME} src/main.cpp)
+add_executable(${TARGET_NAME} src/main/main.cpp)
 target_link_libraries(${TARGET_NAME} PRIVATE ${TARGET_NAME}_lib)
-target_include_directories(
-    ${TARGET_NAME}
-    PRIVATE ${CMAKE_SOURCE_DIR}/include # All headers in /include should be public, 
-                                        # but the exe should not expose them
-    PRIVATE ${CMAKE_SOURCE_DIR}/src     # All headers in /src should be private
-)
 
 # ------------------ TESTING ------------------
 # Add Google Test
 add_subdirectory(external/googletest)
 
 enable_testing()
-
-# List all GTest files here
-# Pitchfork pattern is [cpp name].test.cpp;
-set(TEST_SOURCES
-    ${CMAKE_SOURCE_DIR}/src/Component.test.cpp
-    ${CMAKE_SOURCE_DIR}/src/namespace/SubComponent.test.cpp
-    ${CMAKE_SOURCE_DIR}/src/PublicComponent.test.cpp
-)
 
 add_executable(${TARGET_NAME}_tests ${TEST_SOURCES})
 target_link_libraries(
@@ -72,9 +64,9 @@ target_link_libraries(
 )
 target_include_directories(
     ${TARGET_NAME}_tests
-    PRIVATE ${CMAKE_SOURCE_DIR}/include # All headers in /include should be public,
-                                        # but tests should not expose them
-    PRIVATE ${CMAKE_SOURCE_DIR}/src     # All headers in /src should be private
+    # Explicitly access all headers, regardless of visibility from _lib
+    PRIVATE ${CMAKE_SOURCE_DIR}/include
+    PRIVATE ${CMAKE_SOURCE_DIR}/src
 )
 
 include(GoogleTest)
