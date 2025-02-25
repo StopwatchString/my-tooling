@@ -11,6 +11,7 @@ public:
     ~SubComponent();
 
     void print();
+    int getPrintCount();
 
 private:
     int printCount{0};
