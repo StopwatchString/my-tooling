@@ -18,3 +18,8 @@ void Component::print()
     std::cout << "Hello Component" << std::endl;
     printCount++;
 }
+
+int Component::getPrintCount()
+{
+    return printCount;
+}

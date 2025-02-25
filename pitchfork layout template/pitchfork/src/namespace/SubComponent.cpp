@@ -21,4 +21,9 @@ void SubComponent::print()
     printCount++;
 }
 
+int SubComponent::getPrintCount()
+{
+    return printCount;
+}
+
 }

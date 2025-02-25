@@ -8,6 +8,7 @@ public:
     ~Component();
 
     void print();
+    int getPrintCount();
 
 private:
     int printCount{0};
