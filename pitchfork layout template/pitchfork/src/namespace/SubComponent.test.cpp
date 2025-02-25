@@ -2,7 +2,7 @@
 
 #include "SubComponent.hpp"
 
-TEST(ComponentTest, PrintCounting) {
+TEST(SubComponentTest, PrintCounting) {
     Namespace::SubComponent c;
 
     EXPECT_EQ(0, c.getPrintCount());
