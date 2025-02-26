@@ -106,6 +106,8 @@ vkC1::
 openWindowsTerminalPowershell()
 {
     targetPath := directorySelectWithTooltipLoop("Powershell: ")
+    targetPath := addQuotesToString(targetPath)
+
     Run('wt.exe -p "Powershell" -d ' targetPath)
 }
 
@@ -116,6 +118,8 @@ openWindowsTerminalPowershell()
 openWindowsTerminalPowershellAdministrator()
 {
     targetPath := directorySelectWithTooltipLoop("Powershell (Admin): ")
+    targetPath := addQuotesToString(targetPath)
+
     command := 'wt.exe -p "Powershell" -d ' targetPath
     Run("*RunAs " . command)
 }
@@ -127,6 +131,8 @@ openWindowsTerminalPowershellAdministrator()
 openWindowsTerminalCommandPrompt()
 {
     targetPath := directorySelectWithTooltipLoop("Command Prompt: ")
+    targetPath := addQuotesToString(targetPath)
+
     Run('wt.exe -p "Command Prompt" -d ' targetPath)
 }
 
@@ -137,6 +143,8 @@ openWindowsTerminalCommandPrompt()
 openWindowsTerminalCommandPromptAdministrator()
 {
     targetPath := directorySelectWithTooltipLoop("Command Prompt (Admin): ")
+    targetPath := addQuotesToString(targetPath)
+
     command := 'wt.exe -p "Command Prompt" -d ' targetPath
     Run("*RunAs " . command)
 }
@@ -185,6 +193,7 @@ findAndRunPremake()
 openVsCodeFolderMode()
 {
     targetPath := directorySelectWithTooltipLoop("VS Code: ")
+    targetPath := addQuotesToString(targetPath)
 
     Run('powershell -NoProfile -Command `"Start-Process code -ArgumentList `'\' targetPath '\`"`'' )
 }
@@ -232,7 +241,7 @@ directorySelectWithTooltipLoop(stringPrefix)
         Sleep(KEY_STATE_CHECK_SLEEP_TIME_MS)
     }
     ToolTip("")
-    return '"' targetDirectory '"'
+    return targetDirectory
 }
 
 ;------------------------------------------------------------------------------
@@ -273,4 +282,14 @@ isFileInDirectory(fileName, directoryPath)
 
     ; Check if the file exists
     return FileExist(filePath)
+}
+
+;------------------------------------------------------------------------------
+; @function addQuotesToString()
+; @details  Appends double quotes to front and back of string.
+; @return   Input string with double quotes around it.
+;------------------------------------------------------------------------------
+addQuotesToString(string)
+{
+    return '"' string '"'
 }
