@@ -1,6 +1,13 @@
 {
+    // Suppresses advertisement for widgets that will help with your
+    // current workflow as far as I remember.
     "editor.inlineSuggest.suppressSuggestions": true,
+
+    // Removes prompt asking if a workspace is trusted before opening.
+    // This tends to get annoying when cloning new repos...
     "security.workspace.trust.untrustedFiles": "open",
+
+    // Controls what terminals are default available.
     "terminal.integrated.profiles.windows": {
         "PowerShell": {
             "source": "PowerShell",
@@ -18,17 +25,41 @@
             "source": "Git Bash"
         }
     },
+
+    // Enable all whitespace
     "editor.renderWhitespace": "all",
+
+    // Drag and dropping files has no prompt
     "explorer.confirmDragAndDrop": false,
+    
+    // https://code.visualstudio.com/docs/setup/windows#_working-with-unc-paths
+    //
+    // As of version 1.78.1, VS Code on Windows only allows access to UNC paths 
+    // (these begin with a leading \\) that were either approved by the user on 
+    // startup or where the host name is configured to be allowed via the 
+    // security.allowedUNCHosts setting.
     "security.restrictUNCAccess": false,
+
+    // Don't open git repositories in parent folders. I generally never want
+    // to interact with git via VSCode. This probably doesn't cover all settings
+    // related to disabling Git in VSCode.
     "git.openRepositoryInParentFolders": "never",
+
+    // Moves the activity bar to the top on the sidebar.
     "workbench.activityBar.location": "top",
-    "cmake.showOptionsMovedNotification": false,
+
+    // Open directly to README if present
     "workbench.startupEditor": "readme",
+
+    // Adds line length indicators at 80 and 120 characters respectively.
     "editor.rulers": [
         80, 120
     ],
+    // Colors the line length indicators
     "workbench.colorCustomizations": {
         "editorRuler.foreground": "#2b292a"
     },
+
+    // Hides Copilot at top of editor
+    "chat.commandCenter.enabled": false,
 }
