@@ -51,7 +51,6 @@
     // Open directly to README if present
     "workbench.startupEditor": "readme",
 
-
     // Settings to completely disable Git in VSCode
     "git.enabled": false,
     "git.path": null,
