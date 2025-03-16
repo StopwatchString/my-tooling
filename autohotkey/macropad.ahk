@@ -211,7 +211,7 @@ openVsCodeFolderMode()
 ;------------------------------------------------------------------------------
 detectTargetDirectory()
 {
-    targetPath := "C:\\dev\\"
+    targetPath := getDefaultDirectory()
 
     ; Try to intelligently determine path from active window
     explorerPath := getExplorerDirectory()
@@ -324,4 +324,23 @@ isFileInDirectory(fileName, directoryPath)
 addQuotesToString(string)
 {
     return '"' string '"'
+}
+
+;------------------------------------------------------------------------------
+; @function getDefaultDirectory()
+; @details  Figures out a default directory depending on system ENV vars and
+;           existence of fallback directories.
+; @return   Default directory as a string.
+;------------------------------------------------------------------------------
+getDefaultDirectory()
+{
+    defaultDirectory := EnvGet("MACROPAD_DEFAULT_FOLDER")
+    if defaultDirectory == "" {
+        if (DirExist("C:\\dev\\")) {
+            defaultDirectory := "C:\\dev\\"
+        } else {
+            defaultDirectory := "C:\\"
+        }
+    }
+    return defaultDirectory
 }
