@@ -62,4 +62,7 @@
     // https://code.visualstudio.com/docs/copilot/copilot-settings
     "chat.commandCenter.enabled": false,
     "github.copilot.enable": false,
+
+    // Line Endings (LF)
+    "files.eol": "\n",
 }
