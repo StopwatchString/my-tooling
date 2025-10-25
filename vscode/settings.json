@@ -1,4 +1,7 @@
 {
+    // Makes opening settings just open this file instead
+    "workbench.settings.editor": "json",
+
     // Controls what terminals are default available.
     "terminal.integrated.profiles.windows": {
         "PowerShell": {
@@ -34,6 +37,17 @@
         "editorRuler.foreground": "#2b292a"
     },
 
+    // Indentation
+    "editor.tabSize": 4,
+    "editor.insertSpaces": true,
+
+    // .nix
+    "[nix]": {
+        "editor.tabSize": 2,
+        "editor.insertSpaces": true,
+        "editor.detectIndentation": false
+    },
+
     // Drag and dropping files has no prompt
     "explorer.confirmDragAndDrop": false,
     
@@ -62,7 +76,9 @@
     // https://code.visualstudio.com/docs/copilot/copilot-settings
     "chat.commandCenter.enabled": false,
     "github.copilot.enable": false,
+    "chat.agent.enabled": false,
+    "workbench.secondarySideBar.defaultVisibility": "hidden", // Helps hide copilot
 
     // Line Endings (LF)
-    "files.eol": "\n",
+    "files.eol": "\n"
 }
