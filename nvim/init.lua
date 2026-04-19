@@ -38,6 +38,13 @@ vim.keymap.set('v', '<A-j>', ":m '>+1<CR>gv=gv", { silent = true })
 vim.keymap.set('v', '<A-k>', ":m '<-2<CR>gv=gv", { silent = true })
 
 -- ===== LSPs and related setup =====
+-- Custom Filetypes
+vim.filetype.add({
+    extension = {
+        jai = 'jai',
+    },
+})
+
 -- Enabled LSPs
 vim.lsp.enable('lua_ls')
 vim.lsp.enable('jails')
@@ -50,12 +57,6 @@ vim.pack.add({
 -- Adds nvim api and functions to Lua LSP
 require("lazydev").setup()
 
--- Custom Filetypes
-vim.filetype.add({
-    extension = {
-        jai = 'jai',
-    },
-})
 
 -- Autocomplete Settings
 vim.opt.autocomplete = true
@@ -133,7 +134,16 @@ vim.api.nvim_create_autocmd('BufReadPost', {
   end,
 })
 
-
 -- Add line markers at 80 and 120 characters
 vim.opt.colorcolumn = '80,120'
 vim.api.nvim_set_hl(0, 'ColorColumn', { bg = '#1e1e1e' })
+
+-- ===== Providers =====
+vim.g.loaded_python3_provider = 0
+-- vim.g.python3_host_prog
+vim.g.loaded_ruby_provider = 0
+-- vim.g.ruby_host_prog
+vim.g.loaded_perl_provider = 0
+-- vim.g.perl_host_prog
+vim.g.loaded_node_provider = 0
+-- vim.g.node_host_prog
