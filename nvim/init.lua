@@ -59,6 +59,9 @@ end, { desc = "Open directory of current file" })
 -- Alternate file quick flip
 vim.keymap.set('n', '<leader><leader>', '<C-^>')
 
+-- Save File
+vim.keymap.set('n', '<C-s>', vim.cmd.w)
+
 -- Development Accessors
 if is_windows then
     vim.keymap.set('n', '<leader>dev', ':e C:/dev<CR>')
@@ -165,7 +168,7 @@ vim.opt.wrap = false                                         -- Controls line wr
 vim.opt.scrolloff = 8                                        -- Rows to pad on scrolling
 vim.opt.sidescrolloff = 8                                    -- Columns to pad on scrolling
 
-vim.opt.virtualedit = 'block'
+vim.opt.virtualedit = 'block'                                -- Allows freeform block selection in visual-block mode (ctrl-v / ctrl-q)
 
 -- Remember position in file when reopening
 vim.api.nvim_create_autocmd('BufReadPost', {
@@ -185,6 +188,10 @@ vim.cmd("packadd nvim.undotree")
 vim.keymap.set("n", "<leader>u", function()
   require("undotree").open({ command = "botright 45vnew" })
 end)
+
+-- Disable swapfile
+vim.opt.swapfile = false
+vim.opt.autowriteall = true
 
 vim.opt.colorcolumn = '80,120'                                -- Add line markers at 80 and 120 characters
 vim.api.nvim_set_hl(0, 'ColorColumn', { bg = '#1e1e1e' })     -- Sets the color of the line markers
