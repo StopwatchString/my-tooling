@@ -78,6 +78,7 @@ vim.api.nvim_create_autocmd("CursorHold", {
 -- ===== Plugins =====
 vim.pack.add({
   "https://github.com/folke/lazydev.nvim",            -- lazydev
+  "https://github.com/nvim-lua/plenary.nvim",         -- plenary (telescope dependency)
   "https://github.com/nvim-telescope/telescope.nvim", -- telescope
 })
 
