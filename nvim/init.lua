@@ -35,6 +35,14 @@ end
 
 vim.keymap.set('n', '<leader>restart', ':restart<CR>')
 
+-- Open directory of current file
+vim.keymap.set("n", "<leader>.", function()
+  vim.cmd.edit(vim.fn.expand("%:p:h"))
+end, { desc = "Open directory of current file" })
+
+-- Alternate file quick flip
+vim.keymap.set('n', '<leader><leader>', '<C-^>')
+
 -- Development Accessors
 if is_windows then
     vim.keymap.set('n', '<leader>dev', ':e C:/dev<CR>')
