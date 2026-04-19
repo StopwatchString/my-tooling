@@ -174,6 +174,14 @@ vim.api.nvim_create_autocmd('BufReadPost', {
   end,
 })
 
+-- Enable Undofile and Undotree
+vim.opt.undofile = true
+vim.opt.undolevels = 10000
+vim.cmd("packadd nvim.undotree")
+vim.keymap.set("n", "<leader>u", function()
+  require("undotree").open({ command = "botright 45vnew" })
+end)
+
 vim.opt.colorcolumn = '80,120'                                -- Add line markers at 80 and 120 characters
 vim.api.nvim_set_hl(0, 'ColorColumn', { bg = '#1e1e1e' })     -- Sets the color of the line markers
 
