@@ -4,6 +4,7 @@ local is_windows = vim.uv.os_uname().sysname == 'Windows_NT'
 local is_linux = vim.uv.os_uname().sysname == 'Linux'
 
 vim.g.mapleader = ' '
+vim.o.timeoutlen = 2000
 
 -- ====== Keymaps =====
 
@@ -31,6 +32,14 @@ for name, type in vim.fs.dir(lsp_dir) do
   end
 end
 
+vim.keymap.set('n', '<leader>restart', ':restart<CR>')
+
+-- Development Accessors
+if is_windows then
+    vim.keymap.set('n', '<leader>dev', ':e C:/dev<CR>')
+    vim.keymap.set('n', '<leader>env', ':e C:/Environment<CR>')
+end
+
 -- alt+j and alt+k for line-nudges in normal and visual mode
 vim.keymap.set('n', '<A-j>', ':m .+1<CR>==', { silent = true })
 vim.keymap.set('n', '<A-k>', ':m .-2<CR>==', { silent = true })
@@ -49,14 +58,22 @@ vim.filetype.add({
 vim.lsp.enable('lua_ls')
 vim.lsp.enable('jails')
 
+-- Diagnostics popup
+vim.o.updatetime = 0
+vim.api.nvim_create_autocmd("CursorHold", {
+    callback = function()
+        vim.diagnostic.open_float(nil, { focusable = false })
+    end,
+})
+
 -- ===== Plugins =====
 vim.pack.add({
-  "https://github.com/folke/lazydev.nvim", -- lazydev
+  "https://github.com/folke/lazydev.nvim",            -- lazydev
+  "https://github.com/nvim-telescope/telescope.nvim", -- telescope
 })
 
 -- Adds nvim api and functions to Lua LSP
 require("lazydev").setup()
-
 
 -- Autocomplete Settings
 vim.opt.autocomplete = true
@@ -79,6 +96,7 @@ vim.api.nvim_create_autocmd('LspAttach', {
             javascript = true,
             c = true,
             cpp = true,
+            jai = true,
             -- add more as you like
         }
 
@@ -101,25 +119,25 @@ if is_windows then
 end
 
 -- ===== Whitespace Mechanics Configuration
-vim.opt.tabstop = 4              -- Displayed size of tabs (in columns)
-vim.opt.shiftwidth = 4           -- Number of spaces considered for indentation in any indentation task
-vim.opt.expandtab = true         -- Insert spaces instead of a literal tab
+vim.opt.tabstop = 4                                          -- Displayed size of tabs (in columns)
+vim.opt.shiftwidth = 4                                       -- Number of spaces considered for indentation in any indentation task
+vim.opt.expandtab = true                                     -- Insert spaces instead of a literal tab
 
 -- ===== Editor Visuals =====
 -- Whitespace visualization
-vim.opt.list = true -- Enables
-vim.opt.listchars = { tab = '→ ', trail = '·', space = '·' }
+vim.opt.list = true                                          -- Enables visualization mappings
+vim.opt.listchars = { tab = '→ ', trail = '·', space = '·' } -- Denotes mappings for character visualization
 
 -- Leading Column Config
-vim.opt.number = true            -- Add numbers at front of lines
-vim.opt.relativenumber = false   -- Are line numbers relative to current position?
-vim.opt.signcolumn = 'yes'       -- Permanently enables the leftmost column used for indications from LSPs (like Errors and Warnings)
+vim.opt.number = true                                        -- Add numbers at front of lines
+vim.opt.relativenumber = false                               -- Are line numbers relative to current position?
+vim.opt.signcolumn = 'yes'                                   -- Permanently enables the leftmost column used for indications from LSPs (like Errors and Warnings)
 
 -- No line wrap
-vim.opt.wrap = false
+vim.opt.wrap = false                                         -- Controls line wrapping
 
-vim.opt.scrolloff = 8
-vim.opt.sidescrolloff = 8
+vim.opt.scrolloff = 8                                        -- Rows to pad on scrolling
+vim.opt.sidescrolloff = 8                                    -- Columns to pad on scrolling
 
 vim.opt.virtualedit = 'block'
 
@@ -134,9 +152,8 @@ vim.api.nvim_create_autocmd('BufReadPost', {
   end,
 })
 
--- Add line markers at 80 and 120 characters
-vim.opt.colorcolumn = '80,120'
-vim.api.nvim_set_hl(0, 'ColorColumn', { bg = '#1e1e1e' })
+vim.opt.colorcolumn = '80,120'                                -- Add line markers at 80 and 120 characters
+vim.api.nvim_set_hl(0, 'ColorColumn', { bg = '#1e1e1e' })     -- Sets the color of the line markers
 
 -- ===== Providers =====
 vim.g.loaded_python3_provider = 0
