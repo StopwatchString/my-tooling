@@ -33,6 +33,18 @@ for name, type in vim.fs.dir(lsp_dir) do
   end
 end
 
+-- Quick map to open project root (only if it can be sourced from the LSP)
+vim.keymap.set('n', '<leader>pr', function()
+  local clients = vim.lsp.get_clients({ bufnr = 0 })
+  local root = clients[1] and clients[1].config.root_dir
+  if not root then
+    vim.notify("No LSP root found", vim.log.levels.WARN)
+    return
+  end
+  vim.cmd.Ex(root)
+end)
+
+-- Restart
 vim.keymap.set('n', '<leader>restart', ':restart<CR>')
 
 -- Open directory of current file
