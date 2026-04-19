@@ -4,6 +4,7 @@ local is_windows = vim.uv.os_uname().sysname == 'Windows_NT'
 local is_linux = vim.uv.os_uname().sysname == 'Linux'
 
 vim.g.mapleader = ' '
+vim.g.maplocalleader = ' '
 vim.o.timeoutlen = 2000
 
 -- ====== Keymaps =====
