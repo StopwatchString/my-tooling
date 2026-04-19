@@ -15,12 +15,13 @@ vim.keymap.set('n', '<leader>fv', function()
     end
 end, { desc = 'Open current file directory in file explorer' })
 
--- Leader open the Neovim config file
+-- init.lua hotkey
 vim.keymap.set('n', '<leader>rc', ':e $MYVIMRC<CR>')
 
-
+-- Horrific LLM-written automation for autogenerating leader+lsp_<lsp_config_file_name>
+-- keymaps for opening .lua configs for language servers.
+-- TODO::LOW Understand how this works
 local lsp_dir = vim.fs.joinpath(vim.fn.stdpath('config'), 'lsp')
-
 for name, type in vim.fs.dir(lsp_dir) do
   if type == 'file' and name:match('%.lua$') then
     local lsp_name = name:gsub('%.lua$', '')
@@ -30,18 +31,24 @@ for name, type in vim.fs.dir(lsp_dir) do
   end
 end
 
--- Enabled LSPS
-vim.lsp.enable('lua_ls')
-vim.lsp.enable('jails')
-
--- Adds nvim api and functions to Lua LSP
-require("lazydev").setup()
-
 -- alt+j and alt+k for line-nudges in normal and visual mode
 vim.keymap.set('n', '<A-j>', ':m .+1<CR>==', { silent = true })
 vim.keymap.set('n', '<A-k>', ':m .-2<CR>==', { silent = true })
 vim.keymap.set('v', '<A-j>', ":m '>+1<CR>gv=gv", { silent = true })
 vim.keymap.set('v', '<A-k>', ":m '<-2<CR>gv=gv", { silent = true })
+
+-- ===== LSPs and related setup =====
+-- Enabled LSPs
+vim.lsp.enable('lua_ls')
+vim.lsp.enable('jails')
+
+-- ===== Plugins =====
+vim.pack.add({
+  "https://github.com/folke/lazydev.nvim", -- lazydev
+})
+
+-- Adds nvim api and functions to Lua LSP
+require("lazydev").setup()
 
 -- Custom Filetypes
 vim.filetype.add({
@@ -53,6 +60,9 @@ vim.filetype.add({
 -- Autocomplete Settings
 vim.opt.autocomplete = true
 vim.opt.completeopt = { 'menuone', 'noinsert', 'noselect', 'popup' }
+-- LLM-generated function that makes autocomplete pop up automatically
+-- in the correct files.
+-- TODO::LOW Learn how this works
 vim.api.nvim_create_autocmd('LspAttach', {
     callback = function(ev)
         local client = vim.lsp.get_client_by_id(ev.data.client_id)
@@ -79,16 +89,27 @@ vim.api.nvim_create_autocmd('LspAttach', {
     end,
 })
 
+-- ===== Custom Commands ====
+-- User commands must start in Uppercase and have no underscores
+-- Generally follow the rule of UpperCamelCase
+
+if is_windows then
+    vim.api.nvim_create_user_command('EnvNotes',    'edit $MS_PORTABLE_ENVIRONMENT_ROOT/env_notes.txt', { desc = 'Open Environment notes.txt.' })
+    vim.api.nvim_create_user_command('EnvEnv',      'edit $MS_PORTABLE_ENVIRONMENT_ROOT/env.bat',       { desc = 'Open Environment env.bat.' })
+    vim.api.nvim_create_user_command('EnvLauncher', 'edit $MS_PORTABLE_ENVIRONMENT_ROOT/launcher.bat',  { desc = 'Open Environment launcher.bat.' })
+end
+
+-- ===== Whitespace Mechanics Configuration
+vim.opt.tabstop = 4              -- Displayed size of tabs (in columns)
+vim.opt.shiftwidth = 4           -- Number of spaces considered for indentation in any indentation task
+vim.opt.expandtab = true         -- Insert spaces instead of a literal tab
+
+-- ===== Editor Visuals =====
 -- Whitespace visualization
-vim.opt.list = true
+vim.opt.list = true -- Enables
 vim.opt.listchars = { tab = '→ ', trail = '·', space = '·' }
 
--- Whitespace set to 4 spaces
-vim.opt.tabstop = 4
-vim.opt.shiftwidth = 4
-vim.opt.expandtab = true      -- insert spaces instead of a literal tab
-vim.opt.softtabstop = 4
-
+-- Leading Column Config
 vim.opt.number = true            -- Add numbers at front of lines
 vim.opt.relativenumber = false   -- Are line numbers relative to current position?
 vim.opt.signcolumn = 'yes'       -- Permanently enables the leftmost column used for indications from LSPs (like Errors and Warnings)
@@ -96,6 +117,10 @@ vim.opt.signcolumn = 'yes'       -- Permanently enables the leftmost column used
 -- No line wrap
 vim.opt.wrap = false
 
+vim.opt.scrolloff = 8
+vim.opt.sidescrolloff = 8
+
+vim.opt.virtualedit = 'block'
 
 -- Remember position in file when reopening
 vim.api.nvim_create_autocmd('BufReadPost', {
@@ -107,6 +132,7 @@ vim.api.nvim_create_autocmd('BufReadPost', {
     end
   end,
 })
+
 
 -- Add line markers at 80 and 120 characters
 vim.opt.colorcolumn = '80,120'
