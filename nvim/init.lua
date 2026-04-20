@@ -82,6 +82,14 @@ vim.filetype.add({
     },
 })
 
+-- Activate jai treesitter in .jai files
+vim.api.nvim_create_autocmd('FileType', {
+  pattern = 'jai',
+  callback = function()
+    pcall(vim.treesitter.start)
+  end,
+})
+
 -- Enabled LSPs
 vim.lsp.enable('lua_ls')
 vim.lsp.enable('jails')
