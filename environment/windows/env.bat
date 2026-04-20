@@ -1,6 +1,7 @@
 @echo off
 
 :::: Portable Environment Variables
+set MS_ENVIRONMENT_CONFIG_PATH=C:\dev\my-tooling\environment\windows
 set MS_PORTABLE_ENVIRONMENT_ROOT=C:\Environment
 
 :::: 7-zip
