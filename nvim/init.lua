@@ -68,6 +68,15 @@ if is_windows then
     vim.keymap.set('n', '<leader>env', ':e C:/Environment<CR>')
 end
 
+-- Build and Run
+vim.keymap.set('n', '<F5>', function()
+    local filetype = vim.bo.filetype
+    if filetype == 'jai' then
+        vim.cmd("!jai %")
+        vim.cmd("!%:r.exe")
+    end
+end, { desc = 'Build and Run' })
+
 -- alt+j and alt+k for line-nudges in normal and visual mode
 vim.keymap.set('n', '<A-j>', ':m .+1<CR>==', { silent = true })
 vim.keymap.set('n', '<A-k>', ':m .-2<CR>==', { silent = true })
