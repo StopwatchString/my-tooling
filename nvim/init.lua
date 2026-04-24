@@ -213,6 +213,39 @@ vim.opt.autowriteall = true
 vim.opt.colorcolumn = '80,120'                                -- Add line markers at 80 and 120 characters
 vim.api.nvim_set_hl(0, 'ColorColumn', { bg = '#1e1e1e' })     -- Sets the color of the line markers
 
+-- ===== Mouse =====
+-- Enable mouse for all modes (needed for split resizing/dragging)
+vim.o.mouse = 'a'
+
+-- Disable scroll wheel
+vim.keymap.set({'n', 'i', 'v'}, '<ScrollWheelUp>', '<Nop>', { silent = true })
+vim.keymap.set({'n', 'i', 'v'}, '<ScrollWheelDown>', '<Nop>', { silent = true })
+vim.keymap.set({'n', 'i', 'v'}, '<ScrollWheelLeft>', '<Nop>', { silent = true })
+vim.keymap.set({'n', 'i', 'v'}, '<ScrollWheelRight>', '<Nop>', { silent = true })
+
+-- Disable left click (cursor placement) but NOT drag
+vim.keymap.set({'n', 'i', 'v'}, '<LeftMouse>', '<Nop>', { silent = true })
+vim.keymap.set({'n', 'i', 'v'}, '<2-LeftMouse>', '<Nop>', { silent = true })
+vim.keymap.set({'n', 'i', 'v'}, '<3-LeftMouse>', '<Nop>', { silent = true })
+vim.keymap.set({'n', 'i', 'v'}, '<4-LeftMouse>', '<Nop>', { silent = true })
+
+-- Disable right click
+vim.keymap.set({'n', 'i', 'v'}, '<RightMouse>', '<Nop>', { silent = true })
+
+-- Disable middle click
+vim.keymap.set({'n', 'i', 'v'}, '<MiddleMouse>', '<Nop>', { silent = true })
+
+vim.keymap.set('n', '<LeftMouse>', function()
+  -- Allow click only on window separators/statuslines
+  local mouse = vim.fn.getmousepos()
+  if mouse.winbar == 1 or mouse.line == 0 then
+    return '<LeftMouse>'
+  end
+  return '<Nop>'
+end, { expr = true, silent = true })
+
+vim.keymap.set('t', '<Esc>', '<C-\\><C-n>', { silent = true })
+
 -- ===== Providers =====
 vim.g.loaded_python3_provider = 0
 -- vim.g.python3_host_prog
@@ -222,3 +255,7 @@ vim.g.loaded_perl_provider = 0
 -- vim.g.perl_host_prog
 vim.g.loaded_node_provider = 0
 -- vim.g.node_host_prog
+
+
+-- ===== Scratch Area =====
+
