@@ -1,18 +1,19 @@
 -- Environment Variables
 
-local is_windows = vim.uv.os_uname().sysname == 'Windows_NT'
-local is_linux = vim.uv.os_uname().sysname == 'Linux'
-
 vim.g.mapleader = ' '
 vim.g.maplocalleader = ' '
 vim.o.timeoutlen = 2000
+
+-- ====== Modules =====
+local _ = require('utils')
+local project_commands = require('project_commands')
 
 -- ====== Keymaps =====
 
 -- Open a visual file explorer in the current file's directory (only on Windows right now)
 vim.keymap.set('n', '<leader>fv', function()
     local dir = vim.fn.expand('%:p:h')
-    if is_windows then
+    if _.is_windows() then
         vim.cmd('silent !start explorer.exe "' .. dir .. '"')
     end
 end, { desc = 'Open current file directory in file explorer' })
@@ -63,7 +64,7 @@ vim.keymap.set('n', '<leader><leader>', '<C-^>')
 vim.keymap.set('n', '<C-s>', vim.cmd.w)
 
 -- Development Accessors
-if is_windows then
+if _.is_windows() then
     vim.keymap.set('n', '<leader>dev', ':e C:/dev<CR>')
     vim.keymap.set('n', '<leader>env', ':e C:/Environment<CR>')
 end
@@ -158,7 +159,7 @@ vim.api.nvim_create_autocmd('LspAttach', {
 -- User commands must start in Uppercase and have no underscores
 -- Generally follow the rule of UpperCamelCase
 
-if is_windows then
+if _.is_windows() then
     vim.api.nvim_create_user_command('EnvNotes',    'edit $MS_ENVIRONMENT_CONFIG_PATH/env_notes.txt', { desc = 'Open Environment notes.txt.' })
     vim.api.nvim_create_user_command('EnvEnv',      'edit $MS_ENVIRONMENT_CONFIG_PATH/env.bat',       { desc = 'Open Environment env.bat.' })
     vim.api.nvim_create_user_command('EnvLauncher', 'edit $MS_ENVIRONMENT_CONFIG_PATH/launcher.bat',  { desc = 'Open Environment launcher.bat.' })
@@ -213,37 +214,6 @@ vim.opt.autowriteall = true
 vim.opt.colorcolumn = '80,120'                                -- Add line markers at 80 and 120 characters
 vim.api.nvim_set_hl(0, 'ColorColumn', { bg = '#1e1e1e' })     -- Sets the color of the line markers
 
--- ===== Mouse =====
--- Enable mouse for all modes (needed for split resizing/dragging)
-vim.o.mouse = 'a'
-
--- Disable scroll wheel
-vim.keymap.set({'n', 'i', 'v'}, '<ScrollWheelUp>', '<Nop>', { silent = true })
-vim.keymap.set({'n', 'i', 'v'}, '<ScrollWheelDown>', '<Nop>', { silent = true })
-vim.keymap.set({'n', 'i', 'v'}, '<ScrollWheelLeft>', '<Nop>', { silent = true })
-vim.keymap.set({'n', 'i', 'v'}, '<ScrollWheelRight>', '<Nop>', { silent = true })
-
--- Disable left click (cursor placement) but NOT drag
-vim.keymap.set({'n', 'i', 'v'}, '<LeftMouse>', '<Nop>', { silent = true })
-vim.keymap.set({'n', 'i', 'v'}, '<2-LeftMouse>', '<Nop>', { silent = true })
-vim.keymap.set({'n', 'i', 'v'}, '<3-LeftMouse>', '<Nop>', { silent = true })
-vim.keymap.set({'n', 'i', 'v'}, '<4-LeftMouse>', '<Nop>', { silent = true })
-
--- Disable right click
-vim.keymap.set({'n', 'i', 'v'}, '<RightMouse>', '<Nop>', { silent = true })
-
--- Disable middle click
-vim.keymap.set({'n', 'i', 'v'}, '<MiddleMouse>', '<Nop>', { silent = true })
-
-vim.keymap.set('n', '<LeftMouse>', function()
-  -- Allow click only on window separators/statuslines
-  local mouse = vim.fn.getmousepos()
-  if mouse.winbar == 1 or mouse.line == 0 then
-    return '<LeftMouse>'
-  end
-  return '<Nop>'
-end, { expr = true, silent = true })
-
 vim.keymap.set('t', '<Esc>', '<C-\\><C-n>', { silent = true })
 
 -- ===== Providers =====
@@ -258,4 +228,28 @@ vim.g.loaded_node_provider = 0
 
 
 -- ===== Scratch Area =====
+-- TODO Solve blocks comments command per-filetype
+-- TODO Terminal keymap?
+-- TODO Native whitespace trim
+-- TODO Common format command hotkey for linters
+-- TODO Format on save/whitespace trim on save
+-- TODO Build and Run hotkeys that use LSP workspace?
+-- TODO Build and Run hotkeys schema that are powered by special naming convention for build scripts, just for me
+-- TODO Visualize yank (in kickstart.nvim)
+-- TODO Relative line numbers alongside absolute
+-- TODO Telescope keymaps
+-- TODO Make line length markers' color derived from background color
+-- TODO Investigate color themes (and how to change them)
+-- TODO mini.nvim features
+-- TODO vendor plugins?
 
+vim.keymap.set('n', '<F5>', function()
+    project_commands.run_build_script()
+end, { desc = 'asdf' })
+
+vim.keymap.set('n', '<F6>', function()
+    project_commands.run_build_script("_debug")
+end, { desc = 'asdf' })
+
+
+vim.keymap.set("n", "gd", vim.lsp.buf.definition)
