@@ -10,29 +10,15 @@ local project_commands = require('project_commands')
 
 -- ====== Keymaps =====
 
--- Open a visual file explorer in the current file's directory (only on Windows right now)
-vim.keymap.set('n', '<leader>fv', function()
-    local dir = vim.fn.expand('%:p:h')
-    if _.is_windows() then
-        vim.cmd('silent !start explorer.exe "' .. dir .. '"')
-    end
-end, { desc = 'Open current file directory in file explorer' })
-
 -- init.lua hotkey
 vim.keymap.set('n', '<leader>rc', ':e $MYVIMRC<CR>')
 
--- Horrific LLM-written automation for autogenerating leader+lsp_<lsp_config_file_name>
--- keymaps for opening .lua configs for language servers.
--- TODO::LOW Understand how this works
-local lsp_dir = vim.fs.joinpath(vim.fn.stdpath('config'), 'lsp')
-for name, type in vim.fs.dir(lsp_dir) do
-  if type == 'file' and name:match('%.lua$') then
-    local lsp_name = name:gsub('%.lua$', '')
-    vim.keymap.set('n', '<leader>lsp_' .. lsp_name, function()
-      vim.cmd.edit(vim.fs.joinpath(lsp_dir, name))
-    end, { desc = 'Open LSP ' .. lsp_name .. ' config' })
-  end
-end
+-- Inplace restart
+vim.keymap.set('n', '<leader>R', function()
+    local session = vim.fn.stdpath('state') .. '/restart_session.vim'
+    vim.cmd('mksession! ' .. vim.fn.fnameescape(session))
+    vim.cmd('restart source ' .. vim.fn.fnameescape(session))
+end, { desc = 'Restart Neovim' })
 
 -- Quick map to open project root (only if it can be sourced from the LSP)
 vim.keymap.set('n', '<leader>pr', function()
@@ -45,13 +31,6 @@ vim.keymap.set('n', '<leader>pr', function()
   vim.cmd.Ex(root)
 end)
 
--- Inplace restart
-vim.keymap.set('n', '<leader>R', function()
-  local session = vim.fn.stdpath('state') .. '/restart_session.vim'
-  vim.cmd('mksession! ' .. vim.fn.fnameescape(session))
-  vim.cmd('restart source ' .. vim.fn.fnameescape(session))
-end, { desc = 'Restart Neovim' })
-
 -- Open directory of current file
 vim.keymap.set("n", "<leader>.", function()
   vim.cmd.edit(vim.fn.expand("%:p:h"))
@@ -60,23 +39,44 @@ end, { desc = "Open directory of current file" })
 -- Alternate file quick flip
 vim.keymap.set('n', '<leader><leader>', '<C-^>')
 
--- Save File
-vim.keymap.set('n', '<C-s>', vim.cmd.w)
-
 -- Development Accessors
 if _.is_windows() then
     vim.keymap.set('n', '<leader>dev', ':e C:/dev<CR>')
     vim.keymap.set('n', '<leader>env', ':e C:/Environment<CR>')
 end
 
--- Build and Run
+-- Project Scripts
+vim.keymap.set('n', '<F1>', function()
+    project_commands.edit_project_script('build_debug')
+end, { desc = '' })
+
+vim.keymap.set('n', '<F2>', function()
+    project_commands.edit_project_script('run_debug')
+end, { desc = '' })
+
+vim.keymap.set('n', '<F3>', function()
+    project_commands.edit_project_script('build_release')
+end, { desc = '' })
+
+vim.keymap.set('n', '<F4>', function()
+    project_commands.edit_project_script('run_release')
+end, { desc = '' })
+
 vim.keymap.set('n', '<F5>', function()
-    local filetype = vim.bo.filetype
-    if filetype == 'jai' then
-        vim.cmd("!jai %")
-        vim.cmd("!%:r.exe")
-    end
-end, { desc = 'Build and Run' })
+    project_commands.run_project_script('build_debug')
+end, { desc = '' })
+
+vim.keymap.set('n', '<F6>', function()
+    project_commands.run_project_script('run_debug')
+end, { desc = '' })
+
+vim.keymap.set('n', '<F7>', function()
+    project_commands.run_project_script('build_release')
+end, { desc = '' })
+
+vim.keymap.set('n', '<F8>', function()
+    project_commands.run_project_script('run_release')
+end, { desc = '' })
 
 -- alt+j and alt+k for line-nudges in normal and visual mode
 vim.keymap.set('n', '<A-j>', ':m .+1<CR>==', { silent = true })
@@ -112,28 +112,17 @@ vim.api.nvim_create_autocmd("CursorHold", {
     end,
 })
 
--- ===== Plugins =====
-vim.pack.add({
-  "https://github.com/folke/lazydev.nvim",            -- lazydev
-  "https://github.com/nvim-lua/plenary.nvim",         -- plenary (telescope dependency)
-  "https://github.com/nvim-telescope/telescope.nvim", -- telescope
-})
-
--- Adds nvim api and functions to Lua LSP
-require("lazydev").setup()
-
 -- Autocomplete Settings
-vim.opt.autocomplete = true
-vim.opt.completeopt = { 'menuone', 'noinsert', 'noselect', 'popup' }
+vim.opt.completeopt = { 'menuone', 'noselect', 'fuzzy', 'nosort' }
 -- LLM-generated function that makes autocomplete pop up automatically
 -- in the correct files.
--- TODO::LOW Learn how this works
 vim.api.nvim_create_autocmd('LspAttach', {
     callback = function(ev)
+        -- Get reference to LSP via global list id lookup from event's attached id info
         local client = vim.lsp.get_client_by_id(ev.data.client_id)
         if not client then return end
 
-        -- only enable for these filetypes
+        -- Check if this list of filetypes includes the filetype of the lsp's current buffer
         local enabled_ft = {
             lua = true,
             python = true,
@@ -144,16 +133,25 @@ vim.api.nvim_create_autocmd('LspAttach', {
             c = true,
             cpp = true,
             jai = true,
-            -- add more as you like
         }
-
         if not enabled_ft[vim.bo[ev.buf].filetype] then return end
 
+        -- Toggle autocompletion of the LSP on, with the autotrigger option set to true
         vim.lsp.completion.enable(true, ev.data.client_id, ev.buf, {
             autotrigger = true,
         })
     end,
 })
+
+-- ===== Plugins =====
+vim.pack.add({
+    "https://github.com/folke/lazydev.nvim",            -- lazydev
+    "https://github.com/nvim-lua/plenary.nvim",         -- plenary (telescope dependency)
+    "https://github.com/nvim-telescope/telescope.nvim", -- telescope
+})
+
+-- Adds nvim api and functions to Lua LSP
+require("lazydev").setup()
 
 -- ===== Custom Commands ====
 -- User commands must start in Uppercase and have no underscores
@@ -242,14 +240,6 @@ vim.g.loaded_node_provider = 0
 -- TODO Investigate color themes (and how to change them)
 -- TODO mini.nvim features
 -- TODO vendor plugins?
-
-vim.keymap.set('n', '<F5>', function()
-    project_commands.run_build_script()
-end, { desc = 'asdf' })
-
-vim.keymap.set('n', '<F6>', function()
-    project_commands.run_build_script("_debug")
-end, { desc = 'asdf' })
 
 
 vim.keymap.set("n", "gd", vim.lsp.buf.definition)
