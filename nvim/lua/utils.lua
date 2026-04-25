@@ -30,7 +30,6 @@ function M.is_primitive_concatable(val)
     return type(val) == 'string' or type(val) == 'number'
 end
 
-
 function M.is_all_primitive_concatable(...)
     local args = {...}
     for i = 1, #args do
@@ -41,7 +40,6 @@ function M.is_all_primitive_concatable(...)
     return true
 end
 
-
 function M.is_all_strings(...)
     local args = {...}
     for i = 1, #args do
@@ -50,6 +48,17 @@ function M.is_all_strings(...)
         end
     end
     return true
+end
+
+function M.create_directories(directory_path)
+    if not M.is_string(directory_path) then
+        return false
+    end
+    return vim.fn.mkdir(directory_path, 'p')
+end
+
+function M.is_string(var)
+    return type(var) == 'string'
 end
 
 local is_windows = vim.uv.os_uname().sysname == 'Windows_NT'
