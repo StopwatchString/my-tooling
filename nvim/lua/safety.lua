@@ -1,12 +1,12 @@
 local M = {}
 
-local module_failure_string = ''
+local failures = {}
 
 -- Helper to safely load modules
 function M.checked_require(module_name)
-    local module_ok, module_or_err = pcall(require, module_name)
-    if not module_ok then
-        module_failure_string = module_failure_string .. 'Failed to load module: ' .. module_name .. ': ' .. tostring(module_or_err) .. '\n'
+    local ok, module_or_err = pcall(require, module_name)
+    if not ok then
+        table.insert(failures, string.format('Failed to load module: %s: %s', module_name, tostring(module_or_err)))
         return nil
     end
 
@@ -14,7 +14,11 @@ function M.checked_require(module_name)
 end
 
 function M.get_failure_report()
-    return module_failure_string
+    return table.concat(failures, '\n')
+end
+
+function M.has_failures()
+    return #failures > 0
 end
 
 return M
