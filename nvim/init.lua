@@ -1,166 +1,57 @@
--- Environment Variables
+-- Core Config
 
 vim.g.mapleader = ' '
 vim.g.maplocalleader = ' '
 vim.o.timeoutlen = 2000
 
--- ====== Modules =====
-local _ = require('utils')
-local project_commands = require('project_commands')
-
--- ====== Keymaps =====
-
--- init.lua hotkey
-vim.keymap.set('n', '<leader>rc', ':e $MYVIMRC<CR>')
-
--- Inplace restart
+-- Inplace restart, kept at beginning of config so it always works
 vim.keymap.set('n', '<leader>R', function()
     local session = vim.fn.stdpath('state') .. '/restart_session.vim'
     vim.cmd('mksession! ' .. vim.fn.fnameescape(session))
     vim.cmd('restart source ' .. vim.fn.fnameescape(session))
 end, { desc = 'Restart Neovim' })
 
--- Quick map to open project root (only if it can be sourced from the LSP)
-vim.keymap.set('n', '<leader>pr', function()
-  local clients = vim.lsp.get_clients({ bufnr = 0 })
-  local root = clients[1] and clients[1].config.root_dir
-  if not root then
-    vim.notify("No LSP root found", vim.log.levels.WARN)
-    return
-  end
-  vim.cmd.Ex(root)
-end)
+-- Minimal 'safety' helpers, should always be safe to load
+local safety = require('safety')
 
--- Open directory of current file
-vim.keymap.set("n", "<leader>.", function()
-  vim.cmd.edit(vim.fn.expand("%:p:h"))
-end, { desc = "Open directory of current file" })
-
--- Alternate file quick flip
-vim.keymap.set('n', '<leader><leader>', '<C-^>')
-
--- Development Accessors
-if _.is_windows() then
-    vim.keymap.set('n', '<leader>dev', ':e C:/dev<CR>')
-    vim.keymap.set('n', '<leader>env', ':e C:/Environment<CR>')
+-- Keymap base
+local keymap_base = safety.checked_require('keymap_base')
+if keymap_base then
+    keymap_base.setup()
 end
 
--- Project Scripts
-vim.keymap.set('n', '<F1>', function()
-    project_commands.edit_project_script('build_debug')
-end, { desc = '' })
+-- Project Commands
+local project_commands = safety.checked_require('project_commands')
+if project_commands then
+    project_commands.setup()
+end
 
-vim.keymap.set('n', '<F2>', function()
-    project_commands.edit_project_script('run_debug')
-end, { desc = '' })
+-- LSP
+local lsp_helpers = safety.checked_require('lsp')
+if lsp_helpers then
+    lsp_helpers.setup()
+end
 
-vim.keymap.set('n', '<F3>', function()
-    project_commands.edit_project_script('build_release')
-end, { desc = '' })
-
-vim.keymap.set('n', '<F4>', function()
-    project_commands.edit_project_script('run_release')
-end, { desc = '' })
-
-vim.keymap.set('n', '<F5>', function()
-    project_commands.run_project_script('build_debug')
-end, { desc = '' })
-
-vim.keymap.set('n', '<F6>', function()
-    project_commands.run_project_script('run_debug')
-end, { desc = '' })
-
-vim.keymap.set('n', '<F7>', function()
-    project_commands.run_project_script('build_release')
-end, { desc = '' })
-
-vim.keymap.set('n', '<F8>', function()
-    project_commands.run_project_script('run_release')
-end, { desc = '' })
-
--- alt+j and alt+k for line-nudges in normal and visual mode
-vim.keymap.set('n', '<A-j>', ':m .+1<CR>==', { silent = true })
-vim.keymap.set('n', '<A-k>', ':m .-2<CR>==', { silent = true })
-vim.keymap.set('v', '<A-j>', ":m '>+1<CR>gv=gv", { silent = true })
-vim.keymap.set('v', '<A-k>', ":m '<-2<CR>gv=gv", { silent = true })
-
--- ===== LSPs and related setup =====
--- Custom Filetypes
-vim.filetype.add({
-    extension = {
-        jai = 'jai',
-    },
-})
-
--- Activate jai treesitter in .jai files
-vim.api.nvim_create_autocmd('FileType', {
-  pattern = 'jai',
-  callback = function()
-    pcall(vim.treesitter.start)
-  end,
-})
-
--- Enabled LSPs
-vim.lsp.enable('lua_ls')
-vim.lsp.enable('jails')
-
--- Diagnostics popup
-vim.o.updatetime = 0
-vim.api.nvim_create_autocmd("CursorHold", {
-    callback = function()
-        vim.diagnostic.open_float(nil, { focusable = false })
-    end,
-})
-
--- Autocomplete Settings
-vim.opt.completeopt = { 'menuone', 'noselect', 'fuzzy', 'nosort' }
--- LLM-generated function that makes autocomplete pop up automatically
--- in the correct files.
-vim.api.nvim_create_autocmd('LspAttach', {
-    callback = function(ev)
-        -- Get reference to LSP via global list id lookup from event's attached id info
-        local client = vim.lsp.get_client_by_id(ev.data.client_id)
-        if not client then return end
-
-        -- Check if this list of filetypes includes the filetype of the lsp's current buffer
-        local enabled_ft = {
-            lua = true,
-            python = true,
-            rust = true,
-            go = true,
-            typescript = true,
-            javascript = true,
-            c = true,
-            cpp = true,
-            jai = true,
-        }
-        if not enabled_ft[vim.bo[ev.buf].filetype] then return end
-
-        -- Toggle autocompletion of the LSP on, with the autotrigger option set to true
-        vim.lsp.completion.enable(true, ev.data.client_id, ev.buf, {
-            autotrigger = true,
-        })
-    end,
-})
+-- Portable Environment
+local portable_environment = safety.checked_require('portable_environment')
+if portable_environment then
+    portable_environment.setup()
+end
 
 -- ===== Plugins =====
 vim.pack.add({
-    "https://github.com/folke/lazydev.nvim",            -- lazydev
-    "https://github.com/nvim-lua/plenary.nvim",         -- plenary (telescope dependency)
-    "https://github.com/nvim-telescope/telescope.nvim", -- telescope
+    'https://github.com/folke/lazydev.nvim',            -- lazydev
 })
 
--- Adds nvim api and functions to Lua LSP
-require("lazydev").setup()
+-- Lazydev adds nvim api and functions to Lua LSP
+local lazydev = safety.checked_require('lazydev')
+if lazydev then
+    lazydev.setup()
+end
 
--- ===== Custom Commands ====
--- User commands must start in Uppercase and have no underscores
--- Generally follow the rule of UpperCamelCase
-
-if _.is_windows() then
-    vim.api.nvim_create_user_command('EnvNotes',    'edit $MS_ENVIRONMENT_CONFIG_PATH/env_notes.txt', { desc = 'Open Environment notes.txt.' })
-    vim.api.nvim_create_user_command('EnvEnv',      'edit $MS_ENVIRONMENT_CONFIG_PATH/env.bat',       { desc = 'Open Environment env.bat.' })
-    vim.api.nvim_create_user_command('EnvLauncher', 'edit $MS_ENVIRONMENT_CONFIG_PATH/launcher.bat',  { desc = 'Open Environment launcher.bat.' })
+local failure_report = safety.get_failure_report()
+if #failure_report > 0 then
+    vim.notify(failure_report, vim.log.levels.ERROR)
 end
 
 -- ===== Whitespace Mechanics Configuration
@@ -212,8 +103,6 @@ vim.opt.autowriteall = true
 vim.opt.colorcolumn = '80,120'                                -- Add line markers at 80 and 120 characters
 vim.api.nvim_set_hl(0, 'ColorColumn', { bg = '#1e1e1e' })     -- Sets the color of the line markers
 
-vim.keymap.set('t', '<Esc>', '<C-\\><C-n>', { silent = true })
-
 -- ===== Providers =====
 vim.g.loaded_python3_provider = 0
 -- vim.g.python3_host_prog
@@ -225,7 +114,6 @@ vim.g.loaded_node_provider = 0
 -- vim.g.node_host_prog
 
 
--- ===== Scratch Area =====
 -- TODO Solve blocks comments command per-filetype
 -- TODO Terminal keymap?
 -- TODO Native whitespace trim
@@ -240,6 +128,3 @@ vim.g.loaded_node_provider = 0
 -- TODO Investigate color themes (and how to change them)
 -- TODO mini.nvim features
 -- TODO vendor plugins?
-
-
-vim.keymap.set("n", "gd", vim.lsp.buf.definition)
