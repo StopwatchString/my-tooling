@@ -49,9 +49,8 @@ if lazydev then
     lazydev.setup()
 end
 
-local failure_report = safety.get_failure_report()
-if #failure_report > 0 then
-    vim.notify(failure_report, vim.log.levels.ERROR)
+if safety.has_failures() then
+    vim.notify(safety.get_failure_report(), vim.log.levels.ERROR)
 end
 
 -- ===== Whitespace Mechanics Configuration
@@ -113,18 +112,12 @@ vim.g.loaded_perl_provider = 0
 vim.g.loaded_node_provider = 0
 -- vim.g.node_host_prog
 
-
+-- TODO fff search
 -- TODO Solve blocks comments command per-filetype
--- TODO Terminal keymap?
 -- TODO Native whitespace trim
 -- TODO Common format command hotkey for linters
 -- TODO Format on save/whitespace trim on save
--- TODO Build and Run hotkeys that use LSP workspace?
--- TODO Build and Run hotkeys schema that are powered by special naming convention for build scripts, just for me
 -- TODO Visualize yank (in kickstart.nvim)
 -- TODO Relative line numbers alongside absolute
--- TODO Telescope keymaps
 -- TODO Make line length markers' color derived from background color
--- TODO Investigate color themes (and how to change them)
--- TODO mini.nvim features
--- TODO vendor plugins?
+-- TODO Investigate color themes
