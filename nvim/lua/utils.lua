@@ -7,6 +7,10 @@ function M.deepcopy_or_nil(val)
     return val and vim.deepcopy(val)
 end
 
+function M.not_nil_and_equal(val1, val2)
+    
+end
+
 function M.concat_or_nil(...)
     if not M.is_all_primitive_concatable(...) then
         vim.notify("[utils.lua::concat_or_nil] One or more args are not primitively concatable.", vim.log.levels.WARN)
@@ -71,12 +75,52 @@ function M.is_linux()
     return is_linux
 end
 
-function M.pick_by_os(windows, linux)
+function M.pick_by_os(opts)
     if M.is_windows() then
-        return windows
+        return opts.windows
+    elseif M.is_linux() then
+        return opts.linux
     else
-        return linux
+        return nil
     end
 end
+
+function M.file_exists(path)
+    local stat = vim.loop.fs_stat(path)
+    return stat ~= nil
+end
+
+function M.file_is_readable(path)
+    return vim.fn.filereadable(path) == 1
+end
+
+function M.file_is_writeable(path)
+    return vim.fn.filewriteable(path) >= 1
+end
+
+function M.file_is_executable(path)
+    return vim.fn.executable(path) == 1
+end
+
+function M.file_is(path, opts)
+    if not M.file_exists(path) then
+        return false
+    end
+
+    local is = true
+
+    if opts.readable then
+        is = is and M.file_is_readable(path)
+    end
+
+    if opts.writeable then
+        is = is and M.file_is_writeable(path)
+    end
+
+
+
+
+end
+
 
 return M
