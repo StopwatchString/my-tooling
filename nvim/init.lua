@@ -125,6 +125,11 @@ vim.g.loaded_perl_provider = 0
 vim.g.loaded_node_provider = 0
 -- vim.g.node_host_prog
 
+vim.keymap.set('n', '<leader>fv', function()
+  local dir = vim.fn.expand('%:p:h'):gsub('/', '\\')
+  vim.fn.jobstart('explorer ' .. dir, { detach = true })
+end, { desc = 'Open explorer here' })
+
 -- TODO fff search
 -- TODO Solve blocks comments command per-filetype
 -- TODO Native whitespace trim
