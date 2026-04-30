@@ -14,6 +14,8 @@ function M.setup()
         local project_root_or_nil = lsp_helpers.project_root_or_nil()
         if project_root_or_nil then
             fff.find_files_in_dir(project_root_or_nil)
+        else
+            vim.notify('No project root detected', vim.log.levels.WARN)
         end
     end, { desc = 'FFF Project Dir' })
 end

@@ -38,6 +38,12 @@ if portable_environment then
     portable_environment.setup()
 end
 
+-- Bookmarks
+local bookmarks = safety.checked_require('bookmarks')
+if bookmarks then
+    bookmarks.setup()
+end
+
 -- ===== Plugins =====
 vim.pack.add({
     'https://github.com/folke/lazydev.nvim',            -- lazydev
