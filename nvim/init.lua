@@ -51,26 +51,10 @@ if lazydev then
 end
 
 -- fff
---
-vim.api.nvim_create_autocmd('PackChanged', {
-  callback = function(ev)
-    local name, kind = ev.data.spec.name, ev.data.kind
-    if name == 'fff.nvim' and (kind == 'install' or kind == 'update') then
-      if not ev.data.active then vim.cmd.packadd('fff.nvim') end
-      require('fff.download').download_or_build_binary()
-    end
-  end,
-})
-
-vim.g.fff = {
-  lazy_sync = false,
-  debug = { enabled = true, show_scores = true },
-  max_threads = math.max(1, #vim.loop.cpu_info() - 4),
-  base_path = 'C:\\dev',
-}
-
-vim.keymap.set('n', 'ff', function() require('fff').find_files_in_dir('%:h') end, { desc = 'FFFind files' })
-
+local fff_search = require('fff_search')
+if fff_search then
+    fff_search.setup()
+end
 
 if safety.has_failures() then
     vim.notify(safety.get_failure_report(), vim.log.levels.ERROR)
