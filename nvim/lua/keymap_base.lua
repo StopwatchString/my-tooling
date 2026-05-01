@@ -43,6 +43,44 @@ local function keymaps()
 
     -- Set escape to be able to exit Terminal mode
     vim.keymap.set('t', '<Esc>', '<C-\\><C-n>', { silent = true })
+
+    -- Window manipulation
+    -- Navigate between windows: <leader> + hjkl
+    vim.keymap.set('n', '<leader>h', '<C-w>h', { desc = 'Go to window left' })
+    vim.keymap.set('n', '<leader>j', '<C-w>j', { desc = 'Go to window down' })
+    vim.keymap.set('n', '<leader>k', '<C-w>k', { desc = 'Go to window up' })
+    vim.keymap.set('n', '<leader>l', '<C-w>l', { desc = 'Go to window right' })
+
+    -- Shift = duplicate current window in that direction (same buffer)
+    vim.keymap.set('n', '<leader>H', '<cmd>leftabove vsplit<cr>',  { desc = 'Duplicate window left' })
+    vim.keymap.set('n', '<leader>J', '<cmd>belowright split<cr>',  { desc = 'Duplicate window down' })
+    vim.keymap.set('n', '<leader>K', '<cmd>aboveleft split<cr>',   { desc = 'Duplicate window up' })
+    vim.keymap.set('n', '<leader>L', '<cmd>rightbelow vsplit<cr>', { desc = 'Duplicate window right' })
+
+    -- Ctrl = move current window to that edge
+    vim.keymap.set('n', '<leader><C-h>', '<C-w>H', { desc = 'Move window left' })
+    vim.keymap.set('n', '<leader><C-j>', '<C-w>J', { desc = 'Move window down' })
+    vim.keymap.set('n', '<leader><C-k>', '<C-w>K', { desc = 'Move window up' })
+    vim.keymap.set('n', '<leader><C-l>', '<C-w>L', { desc = 'Move window right' })
+
+    -- Ctrl+Shift = open terminal in that direction
+    local function term_split(direction)
+        return function()
+            local dir = vim.fn.expand('%:p:h')
+            vim.cmd(direction .. ' | lcd ' .. vim.fn.fnameescape(dir) .. ' | terminal')
+        end
+    end
+    vim.keymap.set('n', '<leader>th', term_split('leftabove vsplit'),  { desc = 'Terminal left' })
+    vim.keymap.set('n', '<leader>tj', term_split('belowright split'),  { desc = 'Terminal down' })
+    vim.keymap.set('n', '<leader>tk', term_split('aboveleft split'),   { desc = 'Terminal up' })
+    vim.keymap.set('n', '<leader>tl', term_split('rightbelow vsplit'), { desc = 'Terminal right' })
+
+    -- Close window
+    vim.keymap.set('n', '<leader>q', '<cmd>close<cr>', { desc = 'Close window' })
+
+    -- Comments
+    vim.keymap.set('n', '<leader>c', 'gcc', { remap = true, desc = 'Toggle comment line' })
+    vim.keymap.set('x', '<leader>c', 'gc',  { remap = true, desc = 'Toggle comment selection' })
 end
 
 function M.setup()
