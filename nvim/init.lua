@@ -14,6 +14,9 @@ end, { desc = 'Restart Neovim' })
 -- Minimal 'safety' helpers, should always be safe to load
 local safety = require('safety')
 
+-- Utils
+local utils = require('utils')
+
 -- Keymap base
 local keymap_base = safety.checked_require('keymap_base')
 if keymap_base then
@@ -48,6 +51,7 @@ end
 vim.pack.add({
     'https://github.com/folke/lazydev.nvim',            -- lazydev
     'https://github.com/dmtrKovalenko/fff.nvim',        -- fff search
+    'https://github.com/cbochs/portal.nvim',            -- portals
 })
 
 -- Lazydev adds nvim api and functions to Lua LSP
@@ -61,6 +65,9 @@ local fff_search = require('fff_search')
 if fff_search then
     fff_search.setup()
 end
+
+vim.keymap.set("n", "<leader>o", "<cmd>Portal jumplist backward<cr>")
+vim.keymap.set("n", "<leader>i", "<cmd>Portal jumplist forward<cr>")
 
 if safety.has_failures() then
     vim.notify(safety.get_failure_report(), vim.log.levels.ERROR)
@@ -125,16 +132,33 @@ vim.g.loaded_perl_provider = 0
 vim.g.loaded_node_provider = 0
 -- vim.g.node_host_prog
 
+-- Opens fileexplorer in the current location
 vim.keymap.set('n', '<leader>fv', function()
-  local dir = vim.fn.expand('%:p:h'):gsub('/', '\\')
-  vim.fn.jobstart('explorer ' .. dir, { detach = true })
+    utils.pick_by_os({
+        windows = function()
+            local dir = vim.fn.expand('%:p:h'):gsub('/', '\\')
+            vim.fn.jobstart('explorer ' .. dir, { detach = true })
+        end
+    })
 end, { desc = 'Open explorer here' })
 
--- TODO fff search
--- TODO Solve blocks comments command per-filetype
--- TODO Native whitespace trim
+-- Sets the commentstring for jai files
+vim.api.nvim_create_autocmd('FileType', {
+    pattern = 'jai',
+    callback = function()
+        vim.bo.commentstring = '// %s'
+    end,
+})
+
+-- Command to execute before a buffer write occurs
+-- Sets trim_whitespace for jai files
+-- Should not set for all filetypes, as some can depend on trailing whitespace
+vim.api.nvim_create_autocmd('BufWritePre', {
+    pattern = '*.jai',
+    callback = utils.trim_whitespace_in_current_buffer
+})
+
 -- TODO Common format command hotkey for linters
--- TODO Format on save/whitespace trim on save
 -- TODO Visualize yank (in kickstart.nvim)
 -- TODO Relative line numbers alongside absolute
 -- TODO Make line length markers' color derived from background color

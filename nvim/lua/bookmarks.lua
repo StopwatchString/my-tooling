@@ -25,8 +25,8 @@ function M.list()
 end
 
 function M.setup()
-    local set_marks = '!@#$%^&*()'
-    local go_marks  = '1234567890'  -- unshifted versions
+    local set_marks = '!@#$%^&*()'  -- shift+numerbers
+    local go_marks  = '1234567890'  -- numbers
 
     for i = 0, 9 do
         local mark = string.char(string.byte('A') + i)
@@ -35,11 +35,19 @@ function M.setup()
 
         vim.keymap.set('n', '<leader>' .. set_key, function()
             vim.cmd('normal! m' .. mark)
+            vim.notify('Set Bookmark ' .. go_key)
         end, { desc = 'Set mark ' .. mark })
 
         vim.keymap.set('n', '<leader>' .. go_key, function()
+            local mark_pos = vim.api.nvim_get_mark(mark, {})
+            if mark_pos[1] == 0 and mark_pos[2] == 0 then
+                vim.notify('Mark ' .. go_key .. ' is not set', vim.log.levels.WARN)
+                return
+            end
+
             vim.cmd("normal! '" .. mark)
-        end, { desc = 'Go to mark ' .. mark })
+            vim.notify('Go to Bookmark ' .. go_key)
+        end, { desc = 'Go to mark ' .. go_key })
     end
 
     vim.keymap.set('n', '<leader>b', M.list)

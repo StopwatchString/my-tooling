@@ -7,9 +7,6 @@ function M.deepcopy_or_nil(val)
     return val and vim.deepcopy(val)
 end
 
-function M.not_nil_and_equal(val1, val2)
-    
-end
 
 function M.concat_or_nil(...)
     if not M.is_all_primitive_concatable(...) then
@@ -116,10 +113,12 @@ function M.file_is(path, opts)
     if opts.writeable then
         is = is and M.file_is_writeable(path)
     end
+end
 
-
-
-
+function M.trim_whitespace_in_current_buffer()
+    local view = vim.fn.winsaveview()
+    vim.cmd([[keeppatterns %s/\s\+$//e]])
+    vim.fn.winrestview(view)
 end
 
 

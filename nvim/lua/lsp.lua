@@ -47,37 +47,49 @@ local function configure_universal()
 
     -- Autocomplete Settings
     vim.opt.completeopt = { 'menuone', 'noselect', 'fuzzy', 'nosort' }
-    -- LLM-generated function that makes autocomplete pop up automatically
-    -- in the correct files.
+
     vim.api.nvim_create_autocmd('LspAttach', {
         callback = function(ev)
-            -- Get reference to LSP via global list id lookup from event's attached id info
             local client = vim.lsp.get_client_by_id(ev.data.client_id)
             if not client then return end
 
-            -- Check if this list of filetypes includes the filetype of the lsp's current buffer
             local enabled_ft = {
-                lua = true,
-                python = true,
-                rust = true,
-                go = true,
-                typescript = true,
-                javascript = true,
-                c = true,
-                cpp = true,
-                jai = true,
+                lua = true, python = true, rust = true, go = true,
+                typescript = true, javascript = true, c = true, cpp = true, jai = true,
             }
             if not enabled_ft[vim.bo[ev.buf].filetype] then return end
 
-            -- Toggle autocompletion of the LSP on, with the autotrigger option set to true
             vim.lsp.completion.enable(true, ev.data.client_id, ev.buf, {
                 autotrigger = true,
             })
+
+            -- Buffer-local LSP keymaps
+            local opts = { buffer = ev.buf }
+            vim.keymap.set('n', 'gd', vim.lsp.buf.definition, opts)
+            vim.keymap.set('n', 'gD', vim.lsp.buf.declaration, opts)
+            vim.keymap.set('n', 'gi', vim.lsp.buf.implementation, opts)
+            vim.keymap.set('n', 'gr', vim.lsp.buf.references, opts)
+            vim.keymap.set('n', 'gy', vim.lsp.buf.type_definition, opts)
+            vim.keymap.set('n', 'K', vim.lsp.buf.hover, opts)
+            vim.keymap.set('n', '<C-k>', vim.lsp.buf.signature_help, opts)
+            vim.keymap.set('n', '<leader>ca', vim.lsp.buf.code_action, opts)
+            vim.keymap.set('n', '<leader>rn', vim.lsp.buf.rename, opts)
         end,
     })
 
-    -- Keymaps
-    vim.keymap.set("n", "gd", vim.lsp.buf.definition)
+    -- Diagnostic keymaps can stay global since diagnostics work without LSP
+    vim.keymap.set('n', ']d', function()
+        vim.diagnostic.jump({ count = 1, float = true })
+    end)
+    vim.keymap.set('n', '[d', function()
+        vim.diagnostic.jump({ count = -1, float = true })
+    end)
+    vim.keymap.set('n', ']e', function()
+        vim.diagnostic.jump({ count = 1, severity = vim.diagnostic.severity.ERROR })
+    end)
+    vim.keymap.set('n', '[e', function()
+        vim.diagnostic.jump({ count = -1, severity = vim.diagnostic.severity.ERROR })
+    end)
 end
 
 function M.setup()
