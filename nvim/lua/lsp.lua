@@ -36,6 +36,24 @@ local function configure_jai()
     vim.lsp.enable('jails')
 end
 
+local function configure_nix()
+    vim.filetype.add({
+        extension = {
+            nix = 'nix',
+        },
+    })
+
+    -- Activate nix treesitter in .nix files
+    vim.api.nvim_create_autocmd('FileType', {
+        pattern = 'nix',
+        callback = function()
+            pcall(vim.treesitter.start)
+        end,
+    })
+
+    vim.lsp.enable('nixd')
+end
+
 local function configure_universal()
     -- Diagnostics popup
     vim.o.updatetime = 0
@@ -56,6 +74,7 @@ local function configure_universal()
             local enabled_ft = {
                 lua = true, python = true, rust = true, go = true,
                 typescript = true, javascript = true, c = true, cpp = true, jai = true,
+                nix = true,
             }
             if not enabled_ft[vim.bo[ev.buf].filetype] then return end
 
@@ -95,6 +114,7 @@ end
 function M.setup()
     configure_lua()
     configure_jai()
+    configure_nix()
 
     configure_universal()
 end
