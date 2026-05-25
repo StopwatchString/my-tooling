@@ -7,6 +7,18 @@ local _ = require('utils')
 local search_directory = _.pick_by_os({windows = 'C:\\dev', linux = '~/dev'})
 
 function M.setup()
+    vim.api.nvim_create_autocmd('PackChanged', {
+        callback = function(event)
+            if event.data.spec.name == 'fff.nvim' and event.data.updated then
+                require('fff.download').download_or_build_binary()
+            end
+        end,
+    })
+
+    vim.pack.add({
+        'https://github.com/dmtrKovalenko/fff.nvim'
+    })
+
     local fff = safety.checked_require('fff')
     if not fff then
         return

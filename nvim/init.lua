@@ -23,12 +23,6 @@ if keymap_base then
     keymap_base.setup()
 end
 
--- Project Commands
-local project_commands = safety.checked_require('project_commands')
-if project_commands then
-    project_commands.setup()
-end
-
 -- LSP
 local lsp_helpers = safety.checked_require('lsp')
 if lsp_helpers then
@@ -50,7 +44,6 @@ end
 -- ===== Plugins =====
 vim.pack.add({
     'https://github.com/folke/lazydev.nvim',            -- lazydev
-    'https://github.com/dmtrKovalenko/fff.nvim',        -- fff search
     'https://github.com/cbochs/portal.nvim',            -- portals
 })
 
@@ -61,15 +54,6 @@ if lazydev then
 end
 
 -- fff
-
-vim.api.nvim_create_autocmd('PackChanged', {
-  callback = function(event)
-    if event.data.spec.name == 'fff.nvim' and event.data.updated then
-      require('fff.download').download_or_build_binary()
-    end
-  end,
-})
-
 local fff_search = require('fff_search')
 if fff_search then
     fff_search.setup()
@@ -157,6 +141,19 @@ vim.api.nvim_create_autocmd('FileType', {
     callback = function()
         vim.bo.commentstring = '// %s'
     end,
+})
+
+-- Executes before a buffer write and creates directories to reach the current
+-- file path if they don't exist
+vim.api.nvim_create_autocmd("BufWritePre", {
+  group = vim.api.nvim_create_augroup("auto_create_dir", { clear = true }),
+  callback = function(event)
+    if event.match:match("^%w%w+:[\\/][\\/]") then
+      return -- skip URLs like scp://, http://
+    end
+    local file = vim.uv.fs_realpath(event.match) or event.match
+    vim.fn.mkdir(vim.fn.fnamemodify(file, ":p:h"), "p")
+  end,
 })
 
 -- Command to execute before a buffer write occurs
