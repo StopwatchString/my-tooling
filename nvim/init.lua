@@ -61,6 +61,15 @@ if lazydev then
 end
 
 -- fff
+
+vim.api.nvim_create_autocmd('PackChanged', {
+  callback = function(event)
+    if event.data.spec.name == 'fff.nvim' and event.data.updated then
+      require('fff.download').download_or_build_binary()
+    end
+  end,
+})
+
 local fff_search = require('fff_search')
 if fff_search then
     fff_search.setup()
