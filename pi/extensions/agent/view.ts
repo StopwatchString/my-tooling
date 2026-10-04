@@ -18,9 +18,27 @@ export function statusIcon(run: Run): string {
 	return ICON[run.status];
 }
 
+function count(n: number): string {
+	return n < 1000 ? String(n) : n < 1e6 ? `${(n / 1000).toFixed(n < 1e4 ? 1 : 0)}k` : `${(n / 1e6).toFixed(1)}M`;
+}
+
+/** Tokens used so far and context fill, e.g. "↑41k ↓2.3k · ctx 18%"; empty before the session exists. */
+export function usage(run: Run): string {
+	if (!run.session) return "";
+	try {
+		const t = run.session.getSessionStats().tokens;
+		const ctx = run.session.getContextUsage();
+		const parts = [`↑${count(t.input + t.cacheRead + t.cacheWrite)} ↓${count(t.output)}`];
+		if (ctx?.percent != null) parts.push(`ctx ${Math.round(ctx.percent)}%`);
+		return parts.join(" · ");
+	} catch {
+		return ""; // session disposed
+	}
+}
+
 export function oneLine(run: Run): string {
 	const who = run.personality ? `${run.id} ${run.personality}` : run.id;
-	const parts = [`${statusIcon(run)} ${who}`, run.description, `${run.toolCalls} tools`, elapsed(run)];
+	const parts = [`${statusIcon(run)} ${who}`, run.description, `${run.toolCalls} tools`, usage(run), elapsed(run)].filter(Boolean);
 	if (run.status === "running" && run.activity) parts.push(run.activity);
 	return parts.join(" · ");
 }

@@ -6,12 +6,15 @@
  *   returns an id, and the result arrives later as an `agent-result` message
  *   that starts a turn once the main session is idle.
  * - Tool `agent_wait`: block until background agents finish; returns their results.
+ *   A message from the user ends any wait early: agent_wait returns what has
+ *   finished, and a foreground agent moves to the background.
  * - Tool `agent_send`: steer a running agent, or continue a finished one.
  * - Tool `agent_stop`: abort an agent.
  * - Command `/agents`: list agents; view one's live transcript or stop it.
  * - Widget `agents`: one line per active agent, above the editor.
  * - Event `before_agent_start`: `subagents` prompt section (when to delegate,
  *   the personalities).
+ * - Event `input`: user input while the main session is busy interrupts waits.
  * - Events `agent_settled`, `session_shutdown`: deliver held results; stop children.
  *
  * A child loads the normal extensions (minus this one, so no nesting), MCP
@@ -146,6 +149,7 @@ export default function (pi: ExtensionAPI) {
 	const active = new Map<string, number>(); // running count per provider
 	const waiting: Run[] = [];
 	const wake = new Map<Run, () => void>();
+	const interrupters = new Set<() => void>(); // active waits, ended by user input
 	let lastCtx: ExtensionContext | undefined;
 	let nextId = 1;
 	let ticker: ReturnType<typeof setInterval> | undefined;
@@ -400,19 +404,44 @@ export default function (pi: ExtensionAPI) {
 		);
 	}
 
-	/** Foreground wait with live progress through onUpdate; Ctrl+C stops the run. */
+	/** Resolves when the user sends a message while the main session is busy. */
+	function userInterrupt(): { promise: Promise<void>; dispose: () => void } {
+		let fire!: () => void;
+		const promise = new Promise<void>((resolve) => (fire = resolve));
+		interrupters.add(fire);
+		return { promise, dispose: () => interrupters.delete(fire) };
+	}
+
+	/**
+	 * Foreground wait with live progress through onUpdate; Ctrl+C stops the run.
+	 * A user message detaches it instead: it keeps running and its result arrives as a message.
+	 */
 	async function follow(run: Run, signal: AbortSignal | undefined, onUpdate: ((r: any) => void) | undefined) {
 		const update = () =>
 			onUpdate?.({ content: [{ type: "text", text: oneLine(run) }], details: { id: run.id, line: oneLine(run) } });
 		run.listeners.add(update);
 		const onAbort = () => stop(run);
 		signal?.addEventListener("abort", onAbort);
+		const interrupt = userInterrupt();
 		try {
 			update();
-			await run.done;
+			await Promise.race([run.done, interrupt.promise]);
 		} finally {
+			interrupt.dispose();
 			run.listeners.delete(update);
 			signal?.removeEventListener("abort", onAbort);
+		}
+		if (run.status === "queued" || run.status === "running") {
+			run.claimed = false;
+			return {
+				content: [
+					{
+						type: "text" as const,
+						text: `The user sent a message, so agent ${run.id} moved to the background and is still ${run.status}. Its result will arrive as a message; call agent_wait to block on it.`,
+					},
+				],
+				details: { id: run.id, line: `${run.id} moved to the background` },
+			};
 		}
 		return { content: [{ type: "text" as const, text: report(run) }], details: { id: run.id, line: oneLine(run) } };
 	}
@@ -485,7 +514,7 @@ export default function (pi: ExtensionAPI) {
 		name: "agent_wait",
 		label: "Agent wait",
 		description:
-			"Block until background agents finish and return their results. ids: which agents (default: every unfinished or undelivered one). A result returned here is not delivered again as a message.",
+			"Block until background agents finish and return their results. ids: which agents (default: every unfinished or undelivered one). A result returned here is not delivered again as a message. A message from the user ends the wait early.",
 		parameters: Type.Object({
 			ids: Type.Optional(Type.Array(Type.String())),
 			timeout_seconds: Type.Optional(Type.Number({ description: `Default ${DEFAULT_WAIT_S}` })),
@@ -501,18 +530,29 @@ export default function (pi: ExtensionAPI) {
 				pending.delete(r);
 			}
 			let timer: ReturnType<typeof setTimeout> | undefined;
+			let interrupted = false;
+			const interrupt = userInterrupt();
 			const stopWaiting = new Promise<void>((resolve) => {
 				timer = setTimeout(resolve, (params.timeout_seconds ?? DEFAULT_WAIT_S) * 1000);
 				signal?.addEventListener("abort", () => resolve(), { once: true });
 			});
-			await Promise.race([Promise.all(targets.map((r) => r.done)), stopWaiting]);
+			await Promise.race([
+				Promise.all(targets.map((r) => r.done)),
+				stopWaiting,
+				interrupt.promise.then(() => {
+					interrupted = true;
+				}),
+			]);
 			clearTimeout(timer);
+			interrupt.dispose();
 			const unfinished = targets.filter((r) => r.status === "queued" || r.status === "running");
 			for (const r of unfinished) r.claimed = false; // deliver it as a message when it does finish
-			const text = targets.map(report).join("\n\n");
+			const early = interrupted && unfinished.length > 0;
+			let text = targets.map(report).join("\n\n");
+			if (early) text = `[wait ended early: the user sent a message; unfinished results will arrive as messages]\n\n${text}`;
 			return {
 				content: [{ type: "text", text }],
-				details: { line: `${targets.length - unfinished.length}/${targets.length} finished` },
+				details: { line: `${targets.length - unfinished.length}/${targets.length} finished${early ? " (interrupted)" : ""}` },
 			};
 		},
 		renderCall(args, theme) {
@@ -619,6 +659,12 @@ export default function (pi: ExtensionAPI) {
 	pi.on("session_start", (_e, ctx) => {
 		lastCtx = ctx;
 		closing = false;
+	});
+
+	pi.on("input", (event) => {
+		// Only while busy (a wait is a tool call, so the session is streaming); extension input isn't the user.
+		if (event.streamingBehavior && event.source !== "extension") for (const fire of [...interrupters]) fire();
+		return { action: "continue" };
 	});
 
 	pi.on("agent_settled", (_e, ctx) => {

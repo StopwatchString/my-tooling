@@ -61,7 +61,9 @@ machine should have here.
     `background: true` returns an id at once and the result later arrives as
     an `agent-result` message that starts a turn once the main session is
     idle; `agent_wait` blocks on background agents instead (a result is
-    delivered only once either way). `agent_send` steers a running agent or
+    delivered only once either way). A message from the user ends a wait
+    early: `agent_wait` returns what has finished and a foreground agent moves
+    to the background (Ctrl+C still stops it). `agent_send` steers a running agent or
     continues a finished one with its context; `agent_stop` aborts.
     `readonly: true` drops edit/write; `personality` picks a file from
     `agents/`. A `subagents` system-prompt section tells the model when to
@@ -69,7 +71,8 @@ machine should have here.
     broad searches) and lists the personalities. Children load the normal
     extensions, MCP and tool search, but not `agent/` itself (no nesting);
     they queue per provider over `subagents.maxConcurrency`. `/agents` lists
-    them and opens a live transcript overlay; a widget shows the active ones.
+    them and opens a live transcript overlay; a widget shows the active ones
+    with tool calls, tokens in/out and context fill.
     Transcripts and reports go to `$TMPDIR/pi-agents/<session>/<id>/`. The 8
     most recent finished agents stay open for `agent_send`.
   - `home-models.ts`: the home model server (socrates, `~/serve/ai`) as provider
