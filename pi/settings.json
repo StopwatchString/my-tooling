@@ -1,5 +1,10 @@
 {
   "defaultProvider": "home",
   "defaultModel": "swift",
-  "hideThinkingBlock": true
+  "hideThinkingBlock": true,
+  "subagents": {
+    "maxConcurrency": {
+      "default": 3
+    }
+  }
 }

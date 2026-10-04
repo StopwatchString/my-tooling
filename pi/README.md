@@ -14,6 +14,7 @@ Formerly the separate `~/dev/pi-harness` repo, which is retired.
 | Repo path | In `~/.pi/agent/` | How |
 |---|---|---|
 | `extensions/`, `skills/`, `prompts/`, `themes/` | same names | directory symlinks; pi auto-loads them |
+| `agents/` | `agents` | directory symlink; subagent personalities (read by `extensions/agent/`) |
 | `keybindings.json` | `keybindings.json` | symlink (empty for now; see pi's `docs/keybindings.md`) |
 | `mcp.json` | `mcp.json` | symlink; pi's built-in MCP servers (see below) |
 | `APPEND_SYSTEM.md` | `APPEND_SYSTEM.md` | symlink; pi-only instructions appended to the system prompt |
@@ -36,6 +37,7 @@ the live file has drifted.
 | `defaultProvider` | `home` | start on the home model server (`home-models.ts`) |
 | `defaultModel` | `swift` | its primary model |
 | `hideThinkingBlock` | `true` | hide thinking in the transcript (`thinking-tokens.ts` removes the lines and puts the estimate in the working row; Ctrl+T toggles) |
+| `subagents.maxConcurrency` | `{ "default": 3 }` | subagents running at once, per model provider; add `"<provider>": n` for another endpoint (`extensions/agent/`). Read by the extension, not pi; `$PI_AGENT_MAX_CONCURRENCY` overrides the default |
 
 To try a value without committing, edit the live file directly.
 
@@ -53,6 +55,23 @@ machine should have here.
 ## Contents
 
 - `extensions/`
+  - `agent/`: subagents, in-process like Claude Code's. Tool `agent` hands a
+    task (description + self-contained prompt) to a fresh session with the same
+    tools and model; its final message comes back as the tool result.
+    `background: true` returns an id at once and the result later arrives as
+    an `agent-result` message that starts a turn once the main session is
+    idle; `agent_wait` blocks on background agents instead (a result is
+    delivered only once either way). `agent_send` steers a running agent or
+    continues a finished one with its context; `agent_stop` aborts.
+    `readonly: true` drops edit/write; `personality` picks a file from
+    `agents/`. A `subagents` system-prompt section tells the model when to
+    delegate (it does so on its own when asked for agents, parallel work, or
+    broad searches) and lists the personalities. Children load the normal
+    extensions, MCP and tool search, but not `agent/` itself (no nesting);
+    they queue per provider over `subagents.maxConcurrency`. `/agents` lists
+    them and opens a live transcript overlay; a widget shows the active ones.
+    Transcripts and reports go to `$TMPDIR/pi-agents/<session>/<id>/`. The 8
+    most recent finished agents stay open for `agent_send`.
   - `home-models.ts`: the home model server (socrates, `~/serve/ai`) as provider
     `home`: `swift` (full 256K context, vision, a copy on each GPU behind one
     endpoint, 4 requests at once, more queue). Reads the live list from
@@ -75,6 +94,12 @@ machine should have here.
 - `prompts/`
   - `harness.md`: `/harness [task]` has pi make a change to this directory
     (asks what to fix if no task is given)
+- `agents/`: subagent personalities, one `.md` each: frontmatter `name`,
+  `description`, optional `tools` (`+name`/`-name` against the defaults, or a
+  bare list), `model` (`provider/id`), `thinking`; the body is appended to the
+  subagent's system prompt. Read on every dispatch, so edits need no
+  `/reload`. Trusted projects can add their own in `.pi/agents/`.
+  - `reviewer.md`: read-only correctness review, findings with file:line
 - `skills/`, `themes/`: empty for now
 
 Not tracked (machine-local or secret, stay in `~/.pi/agent/`): `auth.json`,

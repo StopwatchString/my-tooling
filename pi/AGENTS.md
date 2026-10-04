@@ -10,6 +10,8 @@ still applies; this file adds the pi specifics.
 
 ```
 extensions/       pi extensions, one feature per .ts file   -> ~/.pi/agent/extensions
+                  (or a directory with index.ts, like agent/)
+agents/           subagent personalities, one .md each       -> ~/.pi/agent/agents
 skills/           skills, one directory each with SKILL.md  -> ~/.pi/agent/skills
 prompts/          prompt templates; foo.md becomes /foo     -> ~/.pi/agent/prompts
 themes/           theme .json files                         -> ~/.pi/agent/themes
@@ -54,7 +56,9 @@ method name. Run `./dev-setup.sh` if `.pi-sdk` is missing.
   `typebox`) and Node built-ins (`node:*`). Use `import type` for types only.
   Ask before adding any other dependency.
 - Tabs for indentation, double quotes, semicolons (match `compact-tools.ts`).
-- Name files after the command or tool they add (`exit.ts` → `/exit`).
+- Name files after the command or tool they add (`exit.ts` → `/exit`). Split a
+  large extension into a directory whose `index.ts` is the entry point; import
+  siblings with the `.ts` extension (`./view.ts`).
 - When adding or removing a resource, update the list in `README.md`.
 - Secrets never go in this repo. `auth.json`, `models-store.json`, `sessions/`,
   and `trust.json` stay in `~/.pi/agent/` and are not tracked. Read keys at
