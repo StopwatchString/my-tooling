@@ -24,6 +24,13 @@
  * and tool search, uses the main session's model unless its personality says
  * otherwise, and writes its transcript to $TMPDIR/pi-agents/<session>/<id>/.
  *
+ * Review pipeline: a personality with `then: <name>` (implementer.md) has every
+ * finished task reviewed by that personality, with failed reviews (VERDICT: FAIL)
+ * sent back to the same agent to fix, up to `rounds` reviews. The result returned
+ * or delivered is the agent's report plus the last review. A personality with
+ * `default: true` is used for agents that may edit files and name no personality,
+ * so delegated code changes are always reviewed.
+ *
  * Concurrency is per model provider: `subagents.maxConcurrency` in
  * ~/.pi/agent/settings.json, either a number or { "default": 3, "<provider>": n }.
  * $PI_AGENT_MAX_CONCURRENCY overrides the default; the fallback is 3.
@@ -45,7 +52,7 @@ import {
 import { Text } from "@earendil-works/pi-tui";
 import { loadPersonalities, type Personality, toolOptions } from "./personalities.ts";
 import { FRAME_MS, shimmer, spinner } from "./shimmer.ts";
-import { AgentSwitcher, AgentTail, elapsed, lineBody, oneLine, statusIcon, summarizeArgs } from "./view.ts";
+import { AgentSwitcher, AgentTail, elapsed, isLive, lineBody, oneLine, statusIcon, summarizeArgs } from "./view.ts";
 
 const SELF = realpathSync(fileURLToPath(import.meta.url));
 const AGENT_TOOLS = ["agent", "agent_wait", "agent_send", "agent_stop"];
@@ -56,6 +63,8 @@ const DEFAULT_WAIT_S = 1800;
 const KEEP_FINISHED = 8;
 /** Transcript lines in an expanded agent tool block. */
 const TAIL_LINES = 30;
+/** Reviews per task when a `then:` personality gives no `rounds`. */
+const DEFAULT_ROUNDS = 2;
 
 export type Run = {
 	id: string;
@@ -81,6 +90,19 @@ export type Run = {
 	claimed: boolean;
 	unqueue?: () => void;
 	listeners: Set<() => void>;
+	persona?: Personality;
+	/** The task as given (plus any follow-ups), for the reviewer. */
+	spec: string;
+	/** Set while a review pipeline runs after this agent's work, e.g. "review 1/2". */
+	stage?: string;
+	/** The agent reviewing this one; reused across rounds. */
+	reviewer?: Run;
+	/** Set on a reviewer: the id of the agent it reviews. Internal; never delivered on its own. */
+	reviewOf?: string;
+	/** The latest review of this agent's work. */
+	review?: { by: string; verdict: "pass" | "fail" | "unclear"; text: string; round: number; rounds: number };
+	/** Stop requested during the pipeline: no further rounds. */
+	halt?: boolean;
 };
 
 function maxConcurrency(provider: string): number {
@@ -206,10 +228,6 @@ export default function (pi: ExtensionAPI) {
 
 	// --- UI ----------------------------------------------------------------
 
-	function isLive(run: Run): boolean {
-		return run.status === "queued" || run.status === "running";
-	}
-
 	function blockLive(b: { run: Run; done: Promise<void> }): boolean {
 		return b.done === b.run.done && isLive(b.run);
 	}
@@ -328,16 +346,100 @@ export default function (pi: ExtensionAPI) {
 			run.activity = "";
 			prune();
 			changed(run);
-			if (!run.claimed) {
-				pending.add(run);
-				flush();
-			}
 		});
+	}
+
+	/** Queue a finished unit of work for delivery as a message, unless a caller took the result. */
+	function deliver(run: Run) {
+		if (run.claimed || run.reviewOf) return;
+		pending.add(run);
+		flush();
+	}
+
+	/**
+	 * One unit of work: a prompt cycle, then, for a personality with `then:`, review rounds;
+	 * a failed review goes back to this agent to fix, until a pass or `rounds` reviews.
+	 */
+	async function work(ctx: ExtensionContext, run: Run, text: string, start?: () => Promise<AgentSession>) {
+		await cycle(run, text, start);
+		const then = run.persona?.then;
+		if (!then || run.status !== "done") return;
+		const rounds = run.persona?.rounds ?? DEFAULT_ROUNDS;
+		run.halt = false;
+		try {
+			for (let round = 1; round <= rounds; round++) {
+				run.stage = `review ${round}/${rounds}`;
+				changed(run);
+				const rv = await reviewOnce(ctx, run, then);
+				if (run.halt) return;
+				const text = rv.status === "done" ? (rv.result ?? "") : `Review ${rv.status}: ${rv.error ?? "no result"}`;
+				const m = [...text.matchAll(/VERDICT:\s*(PASS|FAIL)/gi)].pop();
+				const verdict = rv.status !== "done" || !m ? "unclear" : m[1]!.toUpperCase() === "PASS" ? "pass" : "fail";
+				run.review = { by: rv.id, verdict, text, round, rounds };
+				if (verdict !== "fail" || round === rounds) return;
+				run.stage = `fixing ${round}/${rounds}`;
+				await cycle(
+					run,
+					[
+						`A reviewer (${rv.id}) checked your change and found problems. Fix what it reports, nothing more.`,
+						"If you disagree with a finding, say why instead of changing the code.",
+						"End with the same kind of report as before.",
+						"",
+						"## Review",
+						text,
+					].join("\n"),
+				);
+				if (run.status !== "done" || run.halt) return;
+			}
+		} finally {
+			run.stage = undefined;
+			changed(run);
+		}
+	}
+
+	/** Run one review of `run`: a new reviewer for the first round, the same one after fixes. */
+	async function reviewOnce(ctx: ExtensionContext, run: Run, personality: string): Promise<Run> {
+		const prev = run.reviewer;
+		const ending = "End your final message with a line that is exactly `VERDICT: PASS` if nothing must change, or `VERDICT: FAIL` after listing what must change.";
+		if (prev?.session && !prev.expired && !isLive(prev)) {
+			prev.done = cycle(
+				prev,
+				[`${run.id} has made changes since your review. Its report:`, "", run.result ?? "", "", "Check them against the spec and your findings, and that nothing else broke.", ending].join("\n"),
+			);
+			await prev.done;
+			return prev;
+		}
+		const prompt = [
+			`Review the change another agent (${run.id}) just made, against the spec it was given.`,
+			"",
+			"## Spec",
+			run.spec,
+			"",
+			`## ${run.id}'s report`,
+			run.result ?? "",
+			"",
+			"Work out what changed: start with `git status` and `git diff` if this is a git repository. Other agents may",
+			"have touched other files, so stick to the files this change concerns. Check that it does what the spec",
+			"asks, nothing it doesn't, and has no defects; run the relevant checks if they are cheap.",
+			"",
+			ending,
+		].join("\n");
+		let rv: Run;
+		try {
+			rv = dispatch(ctx, { description: `review ${run.id}`, prompt, personality, readonly: true, reviewOf: run.id });
+		} catch (e) {
+			// e.g. the `then:` personality doesn't exist: report it as a failed review
+			return { id: personality, status: "failed", error: errorText(e) } as Run;
+		}
+		run.reviewer = rv;
+		changed(run);
+		await rv.done;
+		return rv;
 	}
 
 	function prune() {
 		if (closing) return;
-		const idle = [...runs.values()].filter((r) => r.session && r.endedAt && r.status !== "queued" && r.status !== "running");
+		const idle = [...runs.values()].filter((r) => r.session && r.endedAt && !isLive(r));
 		idle.sort((a, b) => b.endedAt! - a.endedAt!);
 		for (const r of idle.slice(KEEP_FINISHED)) {
 			void closeChild(r.session!);
@@ -348,13 +450,16 @@ export default function (pi: ExtensionAPI) {
 
 	function dispatch(
 		ctx: ExtensionContext,
-		p: { description: string; prompt: string; personality?: string; readonly?: boolean; background?: boolean },
+		p: { description: string; prompt: string; personality?: string; readonly?: boolean; background?: boolean; reviewOf?: string },
 	): Run {
+		const all = loadPersonalities(getAgentDir(), ctx.cwd, ctx.isProjectTrusted());
 		let persona: Personality | undefined;
 		if (p.personality) {
-			const all = loadPersonalities(getAgentDir(), ctx.cwd, ctx.isProjectTrusted());
 			persona = all.get(p.personality);
 			if (!persona) throw new Error(`unknown personality "${p.personality}"; available: ${[...all.keys()].join(", ") || "none"}`);
+		} else if (!p.readonly) {
+			// May edit files: route through the default personality (implementer), if there is one.
+			persona = [...all.values()].find((x) => x.default);
 		}
 		const model = resolveModel(ctx, persona?.model);
 		if (!model) throw new Error("no model selected");
@@ -374,13 +479,20 @@ export default function (pi: ExtensionAPI) {
 			done: Promise.resolve(),
 			claimed: !p.background,
 			listeners: new Set(),
+			persona,
+			spec: p.prompt,
+			reviewOf: p.reviewOf,
 		};
 		runs.set(id, run);
-		run.done = cycle(run, p.prompt, () => startChild(ctx, run, persona, model));
+		run.done = work(ctx, run, p.prompt, () => startChild(ctx, run, persona, model)).finally(() => deliver(run));
 		return run;
 	}
 
 	function stop(run: Run) {
+		if (run.stage) {
+			run.halt = true;
+			if (run.reviewer) stop(run.reviewer);
+		}
 		if (run.status === "queued") {
 			run.status = "stopped";
 			run.unqueue?.();
@@ -393,13 +505,20 @@ export default function (pi: ExtensionAPI) {
 	function report(run: Run): string {
 		const tags = [run.id, run.description, run.personality, `${run.status} after ${elapsed(run)}`, `${run.toolCalls} tool calls`];
 		let body =
-			run.status === "done"
+			run.stage && run.status === "done"
+				? `Implementation finished; still in ${run.stage}${run.reviewer ? ` by ${run.reviewer.id}` : ""}. Its report so far:\n${run.result ?? ""}`
+				: run.status === "done"
 				? (run.result ?? "")
 				: run.status === "failed"
 					? `Error: ${run.error}`
 					: run.status === "stopped"
 						? `Stopped.${run.session?.getLastAssistantText() ? ` Last message:\n${run.session.getLastAssistantText()}` : ""}`
 						: `Still ${run.status}${run.activity ? ` (${run.activity})` : ""}.`;
+		const rv = run.review;
+		if (rv && !run.stage) {
+			const verdict = rv.verdict === "pass" ? "PASS" : rv.verdict === "fail" ? "FAIL (review rounds used up)" : "no clear verdict";
+			body += `\n\n## Review by ${rv.by}, round ${rv.round}/${rv.rounds}: ${verdict}\n${rv.text}`;
+		}
 		if (body.length > RESULT_CAP) {
 			const path = join(run.dir, "result.md");
 			writeFileSync(path, body);
@@ -463,7 +582,7 @@ export default function (pi: ExtensionAPI) {
 			run.listeners.delete(update);
 			signal?.removeEventListener("abort", onAbort);
 		}
-		if (run.status === "queued" || run.status === "running") {
+		if (isLive(run)) {
 			run.claimed = false;
 			return {
 				content: [
@@ -505,7 +624,7 @@ export default function (pi: ExtensionAPI) {
 
 	/** Status for a background agent's call line: spinner and shimmer while it runs, then the outcome. */
 	function backgroundStatus(run: Run, live: boolean, theme: any): string {
-		if (live) return `${spinner()} ${shimmer(run.status === "queued" ? "queued" : "background")}`;
+		if (live) return `${spinner()} ${shimmer(run.stage ?? (run.status === "queued" ? "queued" : "background"))}`;
 		const color = run.status === "done" ? "success" : run.status === "failed" ? "error" : "warning";
 		return `${theme.fg(color, statusIcon(run))} ${theme.fg("dim", run.status)}`;
 	}
@@ -578,7 +697,7 @@ export default function (pi: ExtensionAPI) {
 			lastCtx = ctx;
 			const targets: Run[] = params.ids?.length
 				? params.ids.map(getRun)
-				: [...runs.values()].filter((r) => r.status === "queued" || r.status === "running" || !r.claimed);
+				: [...runs.values()].filter((r) => !r.reviewOf && (isLive(r) || !r.claimed));
 			if (!targets.length) return { content: [{ type: "text", text: "No agents to wait for." }], details: undefined };
 			for (const r of targets) {
 				r.claimed = true;
@@ -600,7 +719,7 @@ export default function (pi: ExtensionAPI) {
 			]);
 			clearTimeout(timer);
 			interrupt.dispose();
-			const unfinished = targets.filter((r) => r.status === "queued" || r.status === "running");
+			const unfinished = targets.filter(isLive);
 			for (const r of unfinished) r.claimed = false; // deliver it as a message when it does finish
 			const early = interrupted && unfinished.length > 0;
 			let text = targets.map(report).join("\n\n");
@@ -640,11 +759,13 @@ export default function (pi: ExtensionAPI) {
 				return { content: [{ type: "text", text: `Sent to ${run.id}; it sees the message after its current step.` }], details: undefined };
 			}
 			if (run.status === "queued") throw new Error(`${run.id} has not started yet`);
+			if (run.stage) throw new Error(`${run.id} is in ${run.stage}; wait for it (agent_wait) or stop it first`);
 			if (run.expired) throw new Error(`${run.id}'s session was closed to free resources; dispatch a new agent`);
 			if (!run.session) throw new Error(`${run.id} never started (${run.error ?? run.status}); dispatch a new agent`);
 			run.claimed = !params.background;
 			pending.delete(run);
-			run.done = cycle(run, params.message);
+			run.spec += `\n\n## Follow-up instructions\n${params.message}`;
+			run.done = work(ctx, run, params.message).finally(() => deliver(run));
 			blocks.set(toolCallId, { run, done: run.done });
 			if (params.background) {
 				return { content: [{ type: "text", text: `Continuing ${run.id} in the background.` }], details: undefined };
@@ -748,6 +869,7 @@ export default function (pi: ExtensionAPI) {
 		lastCtx = ctx;
 		const personas = [...loadPersonalities(getAgentDir(), ctx.cwd, ctx.isProjectTrusted()).values()];
 		const n = maxConcurrency(ctx.model?.provider ?? "");
+		const def = personas.find((p) => p.default);
 		event.systemPromptOptions.sections.subagents = [
 			"## Subagents",
 			"",
@@ -761,9 +883,20 @@ export default function (pi: ExtensionAPI) {
 			"- For independent tasks, start several with `background: true` in one turn, then call `agent_wait`, or",
 			`  keep working and handle results as they arrive. Up to ${n} run at once on this endpoint; more queue.`,
 			"- Use `readonly: true` for research. Don't let two agents edit the same files at once.",
+			...(def
+				? [
+						`- Code changes: an agent that may edit files and names no personality runs as \`${def.name}\`.${def.then ? ` When it finishes, a \`${def.then}\` agent reviews the change against your prompt, and failed reviews go back to it for fixes (up to ${def.rounds ?? DEFAULT_ROUNDS} reviews); you get its report plus the final review.` : ""}`,
+						"  So write the prompt as a precise spec (what to change, where, constraints, how to verify), and set",
+						"  `readonly: true` on every agent that shouldn't change files.",
+					]
+				: []),
 			"- `agent_send` steers a running agent or continues a finished one with its context intact.",
 			...(personas.length
-				? ["", "Personalities (`personality` argument):", ...personas.map((p) => `- ${p.name}: ${p.description}`)]
+				? [
+						"",
+						"Personalities (`personality` argument):",
+						...personas.map((p) => `- ${p.name}: ${p.description}${p.then ? ` (reviewed by ${p.then})` : ""}`),
+					]
 				: []),
 		].join("\n");
 	});

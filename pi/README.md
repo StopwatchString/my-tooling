@@ -104,9 +104,15 @@ machine should have here.
     (asks what to fix if no task is given)
 - `agents/`: subagent personalities, one `.md` each: frontmatter `name`,
   `description`, optional `tools` (`+name`/`-name` against the defaults, or a
-  bare list), `model` (`provider/id`), `thinking`; the body is appended to the
+  bare list), `model` (`provider/id`), `thinking`, `then` (a personality that
+  reviews each finished task; `VERDICT: FAIL` sends the findings back to fix),
+  `rounds` (most reviews per task, default 2), `default: true` (used for agents
+  that may edit files and name no personality); the body is appended to the
   subagent's system prompt. Read on every dispatch, so edits need no
   `/reload`. Trusted projects can add their own in `.pi/agents/`.
+  - `implementer.md`: the default for code changes; implements to the spec,
+    then `reviewer` checks it and it fixes what the review finds (up to 2
+    reviews). The result is its report plus the final review.
   - `reviewer.md`: read-only correctness review, findings with file:line
 - `skills/`, `themes/`: empty for now
 
