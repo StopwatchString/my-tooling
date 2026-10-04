@@ -31,7 +31,7 @@ agents/AGENTS.md      Global agent instructions -> ~/.claude/CLAUDE.md
                       and ~/.pi/agent/AGENTS.md (one file, two agents)
 claude/settings.json  -> ~/.claude/settings.json
 pi/                   pi coding agent config (formerly ~/dev/pi-harness); see
-                      pi/README.md. extensions/ skills/ prompts/ themes/
+                      pi/README.md. extensions/ agents/ skills/ prompts/ themes/
                       keybindings.json mcp.json APPEND_SYSTEM.md are linked into
                       ~/.pi/agent/; settings.json is merged, not linked.
                       Machine-specific bits (models.json) stay untracked.

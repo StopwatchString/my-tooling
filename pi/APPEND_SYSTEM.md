@@ -10,7 +10,7 @@ Your extensions, skills, prompt templates, and themes live in
 `~/my-tooling/pi/`, symlinked into `~/.pi/agent/`. If you notice friction in how
 you work (a missing tool, a repeated manual step, a prompt worth reusing),
 suggest a concrete improvement there. Read `~/my-tooling/pi/AGENTS.md` before
-changing it. `/harness <task>` starts that work.
+changing it.
 
 ## Tools
 

@@ -1,4 +1,4 @@
 {
-  "theme": "dark",
-  "model": "opus"
+  "model": "opus[1m]",
+  "theme": "dark"
 }

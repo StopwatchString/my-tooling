@@ -99,9 +99,6 @@ machine should have here.
     removed from the transcript entirely (pi's hidden label is global to all
     blocks). Press Ctrl+T to show thinking blocks; note this saves
     `hideThinkingBlock` to settings, and `./setup.sh` resets it
-- `prompts/`
-  - `harness.md`: `/harness [task]` has pi make a change to this directory
-    (asks what to fix if no task is given)
 - `agents/`: subagent personalities, one `.md` each: frontmatter `name`,
   `description`, optional `tools` (`+name`/`-name` against the defaults, or a
   bare list), `model` (`provider/id`), `thinking`, `then` (a personality that

@@ -19,3 +19,4 @@ autoload -Uz compinit && compinit
 zstyle ':completion:*' matcher-list 'm:{a-z}={A-Z}'
 
 PROMPT='%F{green}%n@%m%f:%F{blue}%~%f%(!.#.$) '
+export PATH="$HOME/.local/bin:$PATH"

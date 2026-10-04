@@ -52,6 +52,7 @@ manifest() {
   entry pi/keybindings.json       "$pi_dir/keybindings.json"
   entry pi/mcp.json               "$pi_dir/mcp.json"
   entry pi/extensions             "$pi_dir/extensions"
+  entry pi/agents                 "$pi_dir/agents"
   entry pi/skills                 "$pi_dir/skills"
   entry pi/prompts                "$pi_dir/prompts"
   entry pi/themes                 "$pi_dir/themes"
