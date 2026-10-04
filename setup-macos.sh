@@ -48,6 +48,7 @@ manifest() {
   entry agents/AGENTS.md          "$pi_dir/AGENTS.md"
   entry pi/APPEND_SYSTEM.md       "$pi_dir/APPEND_SYSTEM.md"
   entry pi/keybindings.json       "$pi_dir/keybindings.json"
+  entry pi/mcp.json               "$pi_dir/mcp.json"
   entry pi/extensions             "$pi_dir/extensions"
   entry pi/skills                 "$pi_dir/skills"
   entry pi/prompts                "$pi_dir/prompts"

@@ -32,7 +32,7 @@ agents/AGENTS.md      Global agent instructions -> ~/.claude/CLAUDE.md
 claude/settings.json  -> ~/.claude/settings.json
 pi/                   pi coding agent config (formerly ~/dev/pi-harness); see
                       pi/README.md. extensions/ skills/ prompts/ themes/
-                      keybindings.json APPEND_SYSTEM.md are linked into
+                      keybindings.json mcp.json APPEND_SYSTEM.md are linked into
                       ~/.pi/agent/; settings.json is merged, not linked.
                       Machine-specific bits (models.json) stay untracked.
 scripts/              Standalone utilities, not linked
@@ -140,7 +140,8 @@ Caveats / open items:
   repo and re-link.
 - Don't put machine-specific config (hardware, local services) in this
   repo; it targets several machines. Exception: the LAN-wide home model
-  server in `pi/extensions/home-models.ts` (key read from 1Password into `$HOME_AI_KEY` by the `pi` shell function).
+  server in `pi/extensions/home-models.ts` and its search MCP server in
+  `pi/mcp.json` (key read from 1Password into `$HOME_AI_KEY` by the `pi` shell function).
 - `agents/AGENTS.md` is a starter. Grow it with real preferences.
 - The macOS path has only been exercised with a stubbed `uname`, never on a
   real Mac.
