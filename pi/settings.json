@@ -1,3 +1,5 @@
 {
+  "defaultProvider": "home",
+  "defaultModel": "swift",
   "hideThinkingBlock": true
 }

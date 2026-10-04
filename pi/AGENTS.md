@@ -59,8 +59,10 @@ method name. Run `./dev-setup.sh` if `.pi-sdk` is missing.
 - Secrets never go in this repo. `auth.json`, `models-store.json`, `sessions/`,
   and `trust.json` stay in `~/.pi/agent/` and are not tracked. Read keys at
   runtime from an untracked file.
-- Nothing specific to one machine's hardware or local services (model
-  servers, GPUs, provider catalogs). Keep that in `~/.pi/agent/` directly.
+- Nothing specific to one machine's hardware or local services. Keep that in
+  `~/.pi/agent/` directly. The exception is the home model server, which every
+  machine on the LAN uses: `home-models.ts` holds its address and model list.
+  Its key comes from `$HOME_AI_KEY`, never from this repo.
 
 ## Checks (run all of these before saying you're done)
 

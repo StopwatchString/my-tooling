@@ -2,9 +2,10 @@
 
 Configuration for the [pi coding agent](https://github.com/earendil-works/pi).
 `./setup.sh` at the repo root wires it into `~/.pi/agent/` (Linux and macOS).
-Only machine-independent config lives here; anything tied to one machine's
-hardware or local services (e.g. a local model server's `models.json`) stays
-untracked in `~/.pi/agent/`.
+Only config that applies on every machine lives here. The one shared service
+it knows about is the home model server (`home-models.ts`); secrets and
+anything for a single machine stay untracked in `~/.pi/agent/` or
+`~/.config/shell/local.sh`.
 
 Formerly the separate `~/dev/pi-harness` repo, which is retired.
 
@@ -31,6 +32,8 @@ the live file has drifted.
 
 | Key | Value | Purpose |
 |---|---|---|
+| `defaultProvider` | `home` | start on the home model server (`home-models.ts`) |
+| `defaultModel` | `swift` | its primary model |
 | `hideThinkingBlock` | `true` | hide thinking in the transcript (`thinking-tokens.ts` removes the lines and puts the estimate in the working row; Ctrl+T toggles) |
 
 To try a value without committing, edit the live file directly.
@@ -38,6 +41,14 @@ To try a value without committing, edit the live file directly.
 ## Contents
 
 - `extensions/`
+  - `home-models.ts`: the home model server (socrates, `~/serve/ai`) as provider
+    `home`: `swift` (primary, full 256K context, vision) and `swift-agents`
+    (8 requests at once, for many parallel agents). Reads the live list from
+    `/v1/models`, falling back to a built-in copy if the server is unreachable,
+    and adds a `home_models` system-prompt section. Each LAN machine needs
+    `export HOME_AI_KEY=<VLLM_API_KEY from socrates:~/serve/ai/.env>` in
+    `~/.config/shell/local.sh`; `HOME_AI_URL` overrides the default
+    `http://192.168.0.41:8000`. socrates itself needs neither.
   - `exit.ts`: `/exit` command (clean shutdown via `ctx.shutdown()`)
   - `compact-tools.ts`: compact renderers for the built-in tools — bash and read
     collapse to one line (Ctrl+O expands, first 20 lines), edit shows the full
