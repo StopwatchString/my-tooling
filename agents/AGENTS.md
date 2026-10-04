@@ -14,6 +14,10 @@ Project-level AGENTS.md / CLAUDE.md files take precedence for project specifics.
 
 ## Working style
 
+- Be concise. Show diffs and proposed commit messages.
 - Match the surrounding code's style, naming, and comment density.
 - Prefer small, focused changes. Ask before large refactors or anything
   destructive.
+- Run the relevant checks before calling work done.
+- Commit only when told (a repo's own AGENTS.md may grant standing
+  permission). Never push unless asked.

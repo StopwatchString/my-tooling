@@ -6,15 +6,16 @@ DOTFILES="${${(%):-%x}:A:h:h:h}"
 . "$DOTFILES/shell/init.sh"
 
 # --- zsh-specific ---
-HISTFILE="$HOME/.zsh_history"
+HISTFILE="$HOME/.histfile"   # zsh-newuser-install default; keeps existing history
 HISTSIZE=10000
 SAVEHIST=20000
 setopt APPEND_HISTORY SHARE_HISTORY HIST_IGNORE_DUPS HIST_IGNORE_SPACE
-setopt AUTO_CD INTERACTIVE_COMMENTS
+setopt AUTO_CD INTERACTIVE_COMMENTS NOTIFY
+unsetopt BEEP
 
-bindkey -e
+bindkey -v   # vi mode
 
 autoload -Uz compinit && compinit
 zstyle ':completion:*' matcher-list 'm:{a-z}={A-Z}'
 
-PROMPT='%F{green}%n@%m%f:%F{blue}%~%f%# '
+PROMPT='%F{green}%n@%m%f:%F{blue}%~%f%(!.#.$) '

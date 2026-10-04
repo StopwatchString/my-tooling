@@ -1,0 +1,21 @@
+{
+  // Type-check only (`npm run check`). Pi loads the .ts files directly via jiti.
+  // Host packages resolve from the installed pi release through the `.pi-sdk`
+  // symlink that dev-setup.sh creates, so they are never installed here. The
+  // paths point at the type entry files because `paths` ignores package exports.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@earendil-works/*": [".pi-sdk/@earendil-works/*/dist/index.d.ts"],
+      "typebox": [".pi-sdk/typebox"]
+    }
+  },
+  "include": ["extensions/**/*.ts"]
+}

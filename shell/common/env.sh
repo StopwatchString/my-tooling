@@ -12,6 +12,9 @@ path_prepend() {
 path_prepend "$HOME/.local/bin"
 export PATH
 
+# Rust toolchain (rustup). Also in zsh/zshenv for non-interactive zsh.
+[ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
+
 if has_cmd nvim; then
   export EDITOR=nvim VISUAL=nvim
 fi

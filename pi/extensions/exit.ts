@@ -1,0 +1,13 @@
+/**
+ * Command `/exit`: quit Pi cleanly via ctx.shutdown().
+ */
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+
+export default function (pi: ExtensionAPI) {
+	pi.registerCommand("exit", {
+		description: "Quit Pi",
+		handler: async (_args, ctx) => {
+			ctx.shutdown();
+		},
+	});
+}

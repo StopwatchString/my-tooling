@@ -23,6 +23,7 @@ manifest() {
   entry shell/bash/bashrc         "$HOME/.bashrc"
   entry shell/bash/bash_profile   "$HOME/.bash_profile"
   entry shell/zsh/zshrc           "$HOME/.zshrc"
+  entry shell/zsh/zshenv          "$HOME/.zshenv"
 
   # Terminal / editors (nvim uses ~/.config on macOS too)
   entry tmux/.tmux.conf           "$HOME/.tmux.conf"
@@ -37,8 +38,20 @@ manifest() {
   # Coding agents (one shared global instructions file)
   entry agents/AGENTS.md          "$HOME/.claude/CLAUDE.md"
   entry claude/settings.json      "$HOME/.claude/settings.json"
-  entry agents/AGENTS.md          "$HOME/.pi/agent/AGENTS.md"
-  entry pi/settings.json          "$HOME/.pi/agent/settings.json"
+
+  # pi (see pi/README.md). settings.json is rewritten by pi, so it's merged;
+  # the filter drops the package entry of the retired ~/dev/pi-harness repo.
+  local pi_dir="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
+  entry agents/AGENTS.md          "$pi_dir/AGENTS.md"
+  entry pi/APPEND_SYSTEM.md       "$pi_dir/APPEND_SYSTEM.md"
+  entry pi/keybindings.json       "$pi_dir/keybindings.json"
+  entry pi/extensions             "$pi_dir/extensions"
+  entry pi/skills                 "$pi_dir/skills"
+  entry pi/prompts                "$pi_dir/prompts"
+  entry pi/themes                 "$pi_dir/themes"
+  merge_json pi/settings.json     "$pi_dir/settings.json" \
+    'if .packages then .packages |= map(select(tostring | test("pi-harness") | not))
+       | if .packages == [] then del(.packages) else . end else . end'
 }
 
 link_main "$@"

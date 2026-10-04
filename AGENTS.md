@@ -19,6 +19,7 @@ shell/
   bash/bashrc         -> ~/.bashrc
   bash/bash_profile   -> ~/.bash_profile (sources ~/.bashrc)
   zsh/zshrc           -> ~/.zshrc
+  zsh/zshenv          -> ~/.zshenv (cargo env, for every zsh incl. scripts)
 nvim/                 -> ~/.config/nvim (Neovim 0.12+ config; uses vim.pack)
 tmux/.tmux.conf       -> ~/.tmux.conf
 vscode/               settings.json, keybindings.json -> VS Code's User dir
@@ -27,7 +28,11 @@ lang/clangd/config.yaml   -> clangd user config (path differs per OS)
 agents/AGENTS.md      Global agent instructions -> ~/.claude/CLAUDE.md
                       and ~/.pi/agent/AGENTS.md (one file, two agents)
 claude/settings.json  -> ~/.claude/settings.json
-pi/settings.json      -> ~/.pi/agent/settings.json
+pi/                   pi coding agent config (formerly ~/dev/pi-harness); see
+                      pi/README.md. extensions/ skills/ prompts/ themes/
+                      keybindings.json APPEND_SYSTEM.md are linked into
+                      ~/.pi/agent/; settings.json is merged, not linked.
+                      Machine-specific bits (models.json) stay untracked.
 scripts/              Standalone utilities, not linked
                       (install-nvim-ubuntu.sh, nvidia-nix-link.sh)
 nixos/templates/      Reference NixOS configuration.nix, not linked
@@ -45,10 +50,16 @@ nixos/templates/      Reference NixOS configuration.nix, not linked
   `<dest>.backup.<timestamp>`, and a symlink pointing somewhere else is replaced.
 - Each script just sets `$DOTFILES`, defines `manifest()` and calls
   `link_main "$@"`. The behavior lives in `lib/link.sh`.
+- `merge_json <repo path> <dest> [jq filter]` is the alternative to `entry`
+  for JSON an app rewrites itself (pi's settings.json): the repo file's keys
+  are merged over the live file, the filter runs after, `-s` reports `DIFF` on
+  drift. Needs `jq`.
 - **To add a config:** put the file in the repo, then add one
   `entry <repo path> <destination>` line to `manifest()` in `setup.sh`. Add
   it to `setup-macos.sh` too if it applies there; macOS often puts things
   under `~/Library/...` instead of `~/.config/...`.
+- Every script meant to be run by hand (`setup.sh`, `scripts/*`,
+  `pi/dev-setup.sh`) takes `-h`/`--help` and exits 2 on unknown arguments.
 - `setup-macos.sh` and `lib/link.sh` must run under **bash 3.2** (macOS
   `/bin/bash`): no associative arrays, no `mapfile`, no `readlink -f`, no
   `${var,,}`.
@@ -95,15 +106,27 @@ Done (branch `dotfiles-overhaul`):
 - Shared bash+zsh shell layer. The old repo `.bashrc` aliases/functions now
   live in `shell/common/functions.sh` and `shell/os/linux.sh`.
 - Claude Code and pi share global instructions in `agents/AGENTS.md`.
+- Ported the machine-independent parts of the retired `~/dev/pi-harness`
+  repo into `pi/` (generic extensions, `/harness` prompt, keybindings,
+  `hideThinkingBlock`; pi-only instructions in `APPEND_SYSTEM.md`). Left out
+  on purpose: everything tied to the local model router (swift-serve):
+  models.json, local-models/model-autostart/second-opinion extensions, the
+  swift-serve skill, default provider/model, `ai.sh` shell helpers.
+  `setup.sh` relinks its old symlinks, backs up the old `extensions/` dir and
+  drops its `packages` entry from pi's settings.json.
+- Integrated this machine's old ~/.zshrc / ~/.zshenv: vi mode, `$` prompt,
+  `~/.histfile`, NOTIFY/NO_BEEP, cargo env.
 
 Caveats / open items:
 - `setup.sh` has not been run against the real `$HOME` yet. The first run
-  backs up the stock Ubuntu `~/.bashrc` and `~/.claude/settings.json`.
+  backs up the stock Ubuntu `~/.bashrc` and `~/.claude/settings.json`, and
+  migrates `~/.pi/agent` off pi-harness (exercised in a sandbox copy).
 - Claude Code and pi write to their own `settings.json` (e.g. `/config`
   changes). If either tool replaces the symlink with a regular file on save,
   `./setup.sh -s` will report it as `FILE`. Copy the changes back into the
   repo and re-link.
-- `pi/settings.json` is just `{}`. Fill it in once pi is installed.
+- Don't put machine-specific config (hardware, local model servers) in this
+  repo; it targets several machines.
 - `agents/AGENTS.md` is a starter. Grow it with real preferences.
 - The macOS path has only been exercised with a stubbed `uname`, never on a
   real Mac.

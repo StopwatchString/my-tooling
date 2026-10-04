@@ -1,1 +1,4 @@
 nvim/nvim-pack-lock.json
+pi/node_modules/
+pi/.pi-sdk
+pi/package-lock.json
