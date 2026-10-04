@@ -109,9 +109,11 @@ Done (branch `dotfiles-overhaul`):
 - Ported the machine-independent parts of the retired `~/dev/pi-harness`
   repo into `pi/` (generic extensions, `/harness` prompt, keybindings,
   `hideThinkingBlock`; pi-only instructions in `APPEND_SYSTEM.md`). Left out
-  on purpose: everything tied to the local model router (swift-serve):
-  models.json, local-models/model-autostart/second-opinion extensions, the
-  swift-serve skill, default provider/model, `ai.sh` shell helpers.
+  on purpose: the old router-specific pieces (models.json,
+  local-models/model-autostart/second-opinion extensions, the swift-serve
+  skill, `ai.sh` shell helpers). The home model server (socrates,
+  `~/serve/ai`) came back as `pi/extensions/home-models.ts`, since every
+  LAN machine uses it.
   `setup.sh` relinks its old symlinks, backs up the old `extensions/` dir and
   drops its `packages` entry from pi's settings.json.
 - Integrated this machine's old ~/.zshrc / ~/.zshenv: vi mode, `$` prompt,
@@ -125,8 +127,9 @@ Caveats / open items:
   changes). If either tool replaces the symlink with a regular file on save,
   `./setup.sh -s` will report it as `FILE`. Copy the changes back into the
   repo and re-link.
-- Don't put machine-specific config (hardware, local model servers) in this
-  repo; it targets several machines.
+- Don't put machine-specific config (hardware, local services) in this
+  repo; it targets several machines. Exception: the LAN-wide home model
+  server in `pi/extensions/home-models.ts` (key read from 1Password into `$HOME_AI_KEY` by the `pi` shell function).
 - `agents/AGENTS.md` is a starter. Grow it with real preferences.
 - The macOS path has only been exercised with a stubbed `uname`, never on a
   real Mac.
