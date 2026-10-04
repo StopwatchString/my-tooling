@@ -70,8 +70,11 @@ machine should have here.
     delegate (it does so on its own when asked for agents, parallel work, or
     broad searches) and lists the personalities. Children load the normal
     extensions, MCP and tool search, but not `agent/` itself (no nesting);
-    they queue per provider over `subagents.maxConcurrency`. `/agents` lists
-    them and opens a live transcript overlay; a widget shows the active ones
+    they queue per provider over `subagents.maxConcurrency`. `/agents [id]`
+    or Alt+A opens the agent switcher: a tab per agent (←/→ or click to
+    switch) over its full live transcript; `e` shows full tool output, `s`
+    stops the agent. Clicking an agent's tool block (or Ctrl+O) expands it to
+    a live tail of the last 30 transcript lines. A widget shows the active ones
     with tool calls, tokens in/out and context fill. Running agents get a
     spinner cycling through the pi logo colors (`shimmer.ts`), in the widget
     and on their tool blocks.

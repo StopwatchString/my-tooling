@@ -10,7 +10,8 @@
  *   finished, and a foreground agent moves to the background.
  * - Tool `agent_send`: steer a running agent, or continue a finished one.
  * - Tool `agent_stop`: abort an agent.
- * - Command `/agents`: list agents; view one's live transcript or stop it.
+ * - Command `/agents [id]` and shortcut Alt+A: the agent switcher (view.ts), a
+ *   tab per agent with its full live transcript.
  * - Widget `agents`: one line per active agent, above the editor. Live agents
  *   get an animated spinner in the pi logo colors (shimmer.ts), here and on
  *   their tool blocks.
@@ -44,7 +45,7 @@ import {
 import { Text } from "@earendil-works/pi-tui";
 import { loadPersonalities, type Personality, toolOptions } from "./personalities.ts";
 import { FRAME_MS, shimmer, spinner } from "./shimmer.ts";
-import { AgentView, elapsed, lineBody, oneLine, statusIcon, summarizeArgs } from "./view.ts";
+import { AgentSwitcher, AgentTail, elapsed, lineBody, oneLine, statusIcon, summarizeArgs } from "./view.ts";
 
 const SELF = realpathSync(fileURLToPath(import.meta.url));
 const AGENT_TOOLS = ["agent", "agent_wait", "agent_send", "agent_stop"];
@@ -53,6 +54,8 @@ const DEFAULT_CONCURRENCY = 3;
 const DEFAULT_WAIT_S = 1800;
 /** Finished children kept open for agent_send; older ones are closed. */
 const KEEP_FINISHED = 8;
+/** Transcript lines in an expanded agent tool block. */
+const TAIL_LINES = 30;
 
 export type Run = {
 	id: string;
@@ -490,8 +493,10 @@ export default function (pi: ExtensionAPI) {
 		const line = (result.details as { line?: string } | undefined)?.line;
 		const text = result.content[0]?.type === "text" ? (result.content[0].text ?? "") : "";
 		const b = track(context);
+		// Expanded (click or Ctrl+O): a live tail of the agent's transcript.
+		if (b && expanded) return new AgentTail(b.run, theme, TAIL_LINES);
 		// A foreground agent's progress line, live and animated while it runs.
-		if (b && blockLive(b) && !expanded && b.run.claimed) {
+		if (b && blockLive(b) && b.run.claimed) {
 			return new Text(`${statusIcon(b.run, true)} ${theme.fg("dim", lineBody(b.run))}`, 0, 0);
 		}
 		if (expanded || !line) return new Text(text, 0, 0);
@@ -675,34 +680,50 @@ export default function (pi: ExtensionAPI) {
 
 	// --- /agents -----------------------------------------------------------
 
+	/** Open the switcher at `id`, else the newest live agent, else the newest one. */
+	async function openSwitcher(ctx: ExtensionContext, id?: string) {
+		lastCtx = ctx;
+		if (!runs.size) return ctx.ui.notify("No agents in this session.", "info");
+		if (id && !runs.has(id)) return ctx.ui.notify(`No agent "${id}".`, "warning");
+		const all = [...runs.values()];
+		const start = id ?? ([...all].reverse().find(isLive) ?? all[all.length - 1]!).id;
+		if (ctx.mode !== "tui") {
+			// No overlay outside the TUI: pick an agent, then offer to stop it.
+			const items = all.reverse();
+			const labels = items.map((r) => oneLine(r));
+			const run = items[labels.indexOf((await ctx.ui.select("Agents", labels)) ?? "")];
+			if (run && isLive(run) && (await ctx.ui.confirm(`Stop ${run.id}?`, run.description))) stop(run);
+			return;
+		}
+		await ctx.ui.custom<void>(
+			(tui, theme, _kb, done) =>
+				new AgentSwitcher(
+					() => [...runs.values()],
+					start,
+					tui,
+					theme,
+					() => done(),
+					(run) => {
+						stop(run);
+						changed(run);
+					},
+				),
+			{ overlay: true, overlayOptions: { width: "90%", maxHeight: "90%" } },
+		);
+	}
+
 	pi.registerCommand("agents", {
-		description: "List subagents; view one's transcript or stop it",
-		handler: async (args, ctx) => {
-			lastCtx = ctx;
-			if (!runs.size) return ctx.ui.notify("No agents in this session.", "info");
-			let run = args.trim() ? runs.get(args.trim()) : undefined;
-			if (!run) {
-				const items: Run[] = [...runs.values()].reverse();
-				const labels = items.map((r) => oneLine(r));
-				const pick = await ctx.ui.select("Agents", labels);
-				run = items[labels.indexOf(pick ?? "")];
-				if (!run) return;
-			}
-			const live = run.status === "queued" || run.status === "running";
-			const action = live ? await ctx.ui.select(`${statusIcon(run)} ${run.id}`, ["View transcript", "Stop"]) : "View transcript";
-			if (action === "Stop") return stop(run);
-			if (action !== "View transcript" || ctx.mode !== "tui") return;
-			const target = run;
-			await ctx.ui.custom<void>(
-				(tui, theme, _kb, done) => {
-					const view = new AgentView(target, tui, theme, () => done());
-					const rerender = () => tui.requestRender();
-					target.listeners.add(rerender);
-					return Object.assign(view, { dispose: () => target.listeners.delete(rerender) });
-				},
-				{ overlay: true, overlayOptions: { width: "90%", maxHeight: "90%" } },
-			);
-		},
+		description: "Agent switcher: every subagent's live transcript (←/→ to switch); /agents <id> opens one",
+		getArgumentCompletions: (prefix) =>
+			[...runs.values()]
+				.filter((r) => r.id.startsWith(prefix))
+				.map((r) => ({ value: r.id, label: r.id, description: r.description })),
+		handler: (args, ctx) => openSwitcher(ctx, args.trim() || undefined),
+	});
+
+	pi.registerShortcut("alt+a", {
+		description: "Open the agent switcher",
+		handler: (ctx) => openSwitcher(ctx),
 	});
 
 	// --- events ------------------------------------------------------------
