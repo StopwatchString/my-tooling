@@ -11,7 +11,9 @@
  * - Tool `agent_send`: steer a running agent, or continue a finished one.
  * - Tool `agent_stop`: abort an agent.
  * - Command `/agents`: list agents; view one's live transcript or stop it.
- * - Widget `agents`: one line per active agent, above the editor.
+ * - Widget `agents`: one line per active agent, above the editor. Live agents
+ *   get an animated spinner in the pi logo colors (shimmer.ts), here and on
+ *   their tool blocks.
  * - Event `before_agent_start`: `subagents` prompt section (when to delegate,
  *   the personalities).
  * - Event `input`: user input while the main session is busy interrupts waits.
@@ -41,7 +43,8 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { loadPersonalities, type Personality, toolOptions } from "./personalities.ts";
-import { AgentView, elapsed, oneLine, statusIcon, summarizeArgs } from "./view.ts";
+import { FRAME_MS, shimmer, spinner } from "./shimmer.ts";
+import { AgentView, elapsed, lineBody, oneLine, statusIcon, summarizeArgs } from "./view.ts";
 
 const SELF = realpathSync(fileURLToPath(import.meta.url));
 const AGENT_TOOLS = ["agent", "agent_wait", "agent_send", "agent_stop"];
@@ -153,6 +156,11 @@ export default function (pi: ExtensionAPI) {
 	let lastCtx: ExtensionContext | undefined;
 	let nextId = 1;
 	let ticker: ReturnType<typeof setInterval> | undefined;
+	/**
+	 * Tool blocks by tool call id: the run and the prompt cycle (`done`) the call started, so a block
+	 * animates only during its own cycle, and the block's latest invalidate() to redraw it.
+	 */
+	const blocks = new Map<string, { run: Run; done: Promise<void>; invalidate?: () => void; settled?: boolean }>();
 	let closing = false; // session_shutdown in progress: no pruning or delivery
 
 	// --- concurrency -------------------------------------------------------
@@ -195,15 +203,36 @@ export default function (pi: ExtensionAPI) {
 
 	// --- UI ----------------------------------------------------------------
 
+	function isLive(run: Run): boolean {
+		return run.status === "queued" || run.status === "running";
+	}
+
+	function blockLive(b: { run: Run; done: Promise<void> }): boolean {
+		return b.done === b.run.done && isLive(b.run);
+	}
+
+	/** Remember which run a tool block shows; returns it once execute() has linked one. */
+	function track(context: { toolCallId: string; invalidate: () => void }) {
+		const b = blocks.get(context.toolCallId);
+		if (b) b.invalidate = context.invalidate;
+		return b;
+	}
+
 	function changed(run?: Run) {
 		if (run) for (const l of run.listeners) l();
-		const live = [...runs.values()].filter((r) => r.status === "queued" || r.status === "running");
+		// Redraw animating blocks, plus once more when one settles to show its final state.
+		for (const b of blocks.values()) {
+			if (b.settled) continue;
+			if (!blockLive(b)) b.settled = true;
+			b.invalidate?.();
+		}
+		const live = [...runs.values()].filter(isLive);
 		try {
-			if (lastCtx?.hasUI) lastCtx.ui.setWidget("agents", live.length ? live.map(oneLine) : undefined);
+			if (lastCtx?.hasUI) lastCtx.ui.setWidget("agents", live.length ? live.map((r) => oneLine(r, true)) : undefined);
 		} catch {
 			// stale context after a session switch
 		}
-		if (live.length && !ticker) ticker = setInterval(() => changed(), 1000);
+		if (live.length && !ticker) ticker = setInterval(() => changed(), FRAME_MS);
 		if (!live.length && ticker) {
 			clearInterval(ticker);
 			ticker = undefined;
@@ -452,12 +481,29 @@ export default function (pi: ExtensionAPI) {
 		return run;
 	}
 
-	const resultRenderer = (result: { content: Array<{ type: string; text?: string }>; details?: unknown }, expanded: boolean, theme: any) => {
+	const resultRenderer = (
+		result: { content: Array<{ type: string; text?: string }>; details?: unknown },
+		expanded: boolean,
+		theme: any,
+		context: { toolCallId: string; invalidate: () => void },
+	) => {
 		const line = (result.details as { line?: string } | undefined)?.line;
 		const text = result.content[0]?.type === "text" ? (result.content[0].text ?? "") : "";
+		const b = track(context);
+		// A foreground agent's progress line, live and animated while it runs.
+		if (b && blockLive(b) && !expanded && b.run.claimed) {
+			return new Text(`${statusIcon(b.run, true)} ${theme.fg("dim", lineBody(b.run))}`, 0, 0);
+		}
 		if (expanded || !line) return new Text(text, 0, 0);
 		return new Text(theme.fg("dim", line), 0, 0);
 	};
+
+	/** Status for a background agent's call line: spinner and shimmer while it runs, then the outcome. */
+	function backgroundStatus(run: Run, live: boolean, theme: any): string {
+		if (live) return `${spinner()} ${shimmer(run.status === "queued" ? "queued" : "background")}`;
+		const color = run.status === "done" ? "success" : run.status === "failed" ? "error" : "warning";
+		return `${theme.fg(color, statusIcon(run))} ${theme.fg("dim", run.status)}`;
+	}
 
 	// --- tools -------------------------------------------------------------
 
@@ -479,9 +525,10 @@ export default function (pi: ExtensionAPI) {
 			background: Type.Optional(Type.Boolean({ description: "Run without blocking (default false)" })),
 			readonly: Type.Optional(Type.Boolean({ description: "Forbid file modifications (default false)" })),
 		}),
-		async execute(_id, params, signal, onUpdate, ctx) {
+		async execute(toolCallId, params, signal, onUpdate, ctx) {
 			lastCtx = ctx;
 			const run = dispatch(ctx, params);
+			blocks.set(toolCallId, { run, done: run.done });
 			if (params.background) {
 				return {
 					content: [
@@ -495,18 +542,21 @@ export default function (pi: ExtensionAPI) {
 			}
 			return follow(run, signal, onUpdate);
 		},
-		renderCall(args, theme) {
-			const tags = [args.personality, args.background && "background", args.readonly && "readonly"].filter(Boolean);
+		renderCall(args, theme, context) {
+			const b = track(context);
+			// Without a linked run (before execute, or replayed history) fall back to a plain tag.
+			const tags = [args.personality, args.background && !b && "background", args.readonly && "readonly"].filter(Boolean);
 			return new Text(
 				theme.fg("toolTitle", theme.bold("agent ")) +
 					theme.fg("accent", String(args.description ?? "")) +
-					(tags.length ? theme.fg("dim", ` (${tags.join(", ")})`) : ""),
+					(tags.length ? theme.fg("dim", ` (${tags.join(", ")})`) : "") +
+					(b && args.background ? ` ${backgroundStatus(b.run, blockLive(b), theme)}` : ""),
 				0,
 				0,
 			);
 		},
-		renderResult(result, { expanded }, theme) {
-			return resultRenderer(result, expanded, theme);
+		renderResult(result, { expanded }, theme, context) {
+			return resultRenderer(result, expanded, theme, context);
 		},
 	});
 
@@ -562,8 +612,8 @@ export default function (pi: ExtensionAPI) {
 				0,
 			);
 		},
-		renderResult(result, { expanded }, theme) {
-			return resultRenderer(result, expanded, theme);
+		renderResult(result, { expanded }, theme, context) {
+			return resultRenderer(result, expanded, theme, context);
 		},
 	});
 
@@ -577,7 +627,7 @@ export default function (pi: ExtensionAPI) {
 			message: Type.String(),
 			background: Type.Optional(Type.Boolean()),
 		}),
-		async execute(_id, params, signal, onUpdate, ctx) {
+		async execute(toolCallId, params, signal, onUpdate, ctx) {
 			lastCtx = ctx;
 			const run = getRun(params.id);
 			if (run.status === "running" && run.session) {
@@ -590,13 +640,14 @@ export default function (pi: ExtensionAPI) {
 			run.claimed = !params.background;
 			pending.delete(run);
 			run.done = cycle(run, params.message);
+			blocks.set(toolCallId, { run, done: run.done });
 			if (params.background) {
 				return { content: [{ type: "text", text: `Continuing ${run.id} in the background.` }], details: undefined };
 			}
 			return follow(run, signal, onUpdate);
 		},
-		renderResult(result, { expanded }, theme) {
-			return resultRenderer(result, expanded, theme);
+		renderResult(result, { expanded }, theme, context) {
+			return resultRenderer(result, expanded, theme, context);
 		},
 	});
 
@@ -632,7 +683,7 @@ export default function (pi: ExtensionAPI) {
 			let run = args.trim() ? runs.get(args.trim()) : undefined;
 			if (!run) {
 				const items: Run[] = [...runs.values()].reverse();
-				const labels = items.map(oneLine);
+				const labels = items.map((r) => oneLine(r));
 				const pick = await ctx.ui.select("Agents", labels);
 				run = items[labels.indexOf(pick ?? "")];
 				if (!run) return;
@@ -706,6 +757,7 @@ export default function (pi: ExtensionAPI) {
 		await Promise.all(sessions.map(closeChild));
 		runs.clear();
 		pending.clear();
+		blocks.clear();
 		if (ticker) clearInterval(ticker);
 		ticker = undefined;
 	});

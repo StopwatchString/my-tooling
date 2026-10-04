@@ -72,7 +72,9 @@ machine should have here.
     extensions, MCP and tool search, but not `agent/` itself (no nesting);
     they queue per provider over `subagents.maxConcurrency`. `/agents` lists
     them and opens a live transcript overlay; a widget shows the active ones
-    with tool calls, tokens in/out and context fill.
+    with tool calls, tokens in/out and context fill. Running agents get a
+    spinner cycling through the pi logo colors (`shimmer.ts`), in the widget
+    and on their tool blocks.
     Transcripts and reports go to `$TMPDIR/pi-agents/<session>/<id>/`. The 8
     most recent finished agents stay open for `agent_send`.
   - `home-models.ts`: the home model server (socrates, `~/serve/ai`) as provider

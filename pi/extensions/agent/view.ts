@@ -5,6 +5,7 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { type Component, matchesKey, type TUI, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import type { Run } from "./index.ts";
+import { spinner } from "./shimmer.ts";
 
 export function elapsed(run: Run): string {
 	if (!run.startedAt) return "queued";
@@ -14,20 +15,32 @@ export function elapsed(run: Run): string {
 
 const ICON: Record<Run["status"], string> = { queued: "…", running: "⏳", done: "✓", failed: "✗", stopped: "■" };
 
-export function statusIcon(run: Run): string {
-	return ICON[run.status];
+/** `animate`: a running agent gets the colored spinner instead of a static glyph. */
+export function statusIcon(run: Run, animate = false): string {
+	return animate && run.status === "running" ? spinner() : ICON[run.status];
 }
 
 function count(n: number): string {
 	return n < 1000 ? String(n) : n < 1e6 ? `${(n / 1000).toFixed(n < 1e4 ? 1 : 0)}k` : `${(n / 1e6).toFixed(1)}M`;
 }
 
+const usageCache = new WeakMap<Run, { at: number; text: string }>();
+
 /** Tokens used so far and context fill, e.g. "↑41k ↓2.3k · ctx 18%"; empty before the session exists. */
 export function usage(run: Run): string {
 	if (!run.session) return "";
+	// Animation redraws many times a second; the stats only change per model response.
+	const hit = usageCache.get(run);
+	if (hit && Date.now() - hit.at < 500) return hit.text;
+	const text = computeUsage(run.session);
+	usageCache.set(run, { at: Date.now(), text });
+	return text;
+}
+
+function computeUsage(session: NonNullable<Run["session"]>): string {
 	try {
-		const t = run.session.getSessionStats().tokens;
-		const ctx = run.session.getContextUsage();
+		const t = session.getSessionStats().tokens;
+		const ctx = session.getContextUsage();
 		const parts = [`↑${count(t.input + t.cacheRead + t.cacheWrite)} ↓${count(t.output)}`];
 		if (ctx?.percent != null) parts.push(`ctx ${Math.round(ctx.percent)}%`);
 		return parts.join(" · ");
@@ -36,9 +49,15 @@ export function usage(run: Run): string {
 	}
 }
 
-export function oneLine(run: Run): string {
+/** `animate` for live UI only; the plain form is stored in tool results and used in menus. */
+export function oneLine(run: Run, animate = false): string {
+	return `${statusIcon(run, animate)} ${lineBody(run)}`;
+}
+
+/** oneLine without the status icon, for callers that style the two separately. */
+export function lineBody(run: Run): string {
 	const who = run.personality ? `${run.id} ${run.personality}` : run.id;
-	const parts = [`${statusIcon(run)} ${who}`, run.description, `${run.toolCalls} tools`, usage(run), elapsed(run)].filter(Boolean);
+	const parts = [who, run.description, `${run.toolCalls} tools`, usage(run), elapsed(run)].filter(Boolean);
 	if (run.status === "running" && run.activity) parts.push(run.activity);
 	return parts.join(" · ");
 }
