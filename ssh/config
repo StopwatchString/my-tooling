@@ -15,6 +15,12 @@ Host socrates
   User mspeck
   ForwardAgent yes
 
+# MacBook Pro; no fixed IP, so reach it over mDNS (avahi on Linux).
+Host macbook
+  HostName Masons-MacBook-Pro.local
+  User masonspeck
+  ForwardAgent yes
+
 # Agent selection. Use the local 1Password agent only in a local session
 # where its socket exists. Inside an ssh session (SSH_CONNECTION set) the
 # forwarded agent in $SSH_AUTH_SOCK wins instead; otherwise 1Password would
