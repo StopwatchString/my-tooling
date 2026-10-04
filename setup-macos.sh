@@ -31,6 +31,9 @@ manifest() {
   entry vscode/settings.json      "$APP_SUPPORT/Code/User/settings.json"
   entry vscode/keybindings.json   "$APP_SUPPORT/Code/User/keybindings.json"
 
+  # SSH (machine-specific bits go in the untracked ~/.ssh/config.local)
+  entry ssh/config                "$HOME/.ssh/config"
+
   # Language tooling
   entry lang/clang/.clang-format  "$HOME/.clang-format"
   entry lang/clangd/config.yaml   "$HOME/Library/Preferences/clangd/config.yaml"

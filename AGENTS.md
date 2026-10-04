@@ -23,6 +23,8 @@ shell/
 nvim/                 -> ~/.config/nvim (Neovim 0.12+ config; uses vim.pack)
 tmux/.tmux.conf       -> ~/.tmux.conf
 vscode/               settings.json, keybindings.json -> VS Code's User dir
+ssh/config            -> ~/.ssh/config (hosts + agent selection; includes the
+                      untracked ~/.ssh/config.local)
 lang/clang/.clang-format  -> ~/.clang-format
 lang/clangd/config.yaml   -> clangd user config (path differs per OS)
 agents/AGENTS.md      Global agent instructions -> ~/.claude/CLAUDE.md
@@ -76,6 +78,15 @@ nixos/templates/      Reference NixOS configuration.nix, not linked
   settings (history, prompt, completion, shopt/setopt) go in the per-shell rc.
 - Guard tool-specific aliases with `has_cmd`.
 - Exported for use anywhere: `$DOTFILES`, `$DOTFILES_OS`, `$DEV` (`~/dev`).
+
+## SSH notes
+
+- `ssh/config` picks the 1Password agent socket (Linux or macOS path) only in
+  a local session. Inside an ssh session (`$SSH_CONNECTION` set) it leaves
+  `$SSH_AUTH_SOCK`, i.e. the forwarded agent, alone; otherwise the desktop
+  1Password app would raise a GUI approval prompt nobody remote can answer.
+- ssh takes the first value per option, so host blocks go above the agent
+  `Match` blocks. Check resolution with `ssh -G <host>`.
 
 ## nvim notes
 
