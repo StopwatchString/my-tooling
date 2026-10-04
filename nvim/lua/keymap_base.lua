@@ -1,7 +1,5 @@
 local M = {}
 
-local _ = require('utils')
-
 local function keymap_wiping()
     vim.keymap.set('', '<F1>', '<Nop>')
 end
@@ -30,10 +28,7 @@ local function keymaps()
     vim.keymap.set('n', '<leader><leader>', '<C-^>')
 
     -- Development Accessors
-    if _.is_windows() then
-        vim.keymap.set('n', '<leader>dev', ':e C:/dev<CR>')
-        vim.keymap.set('n', '<leader>env', ':e C:/Environment<CR>')
-    end
+    vim.keymap.set('n', '<leader>dev', ':e ~/dev<CR>')
 
     -- alt+j and alt+k for line-nudges in normal and visual mode
     vim.keymap.set('n', '<A-j>', ':m .+1<CR>==', { silent = true })

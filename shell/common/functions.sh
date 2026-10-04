@@ -1,7 +1,6 @@
-alias update='sudo apt update && sudo apt upgrade && sudo apt autoremove'
-alias update-firmware='sudo fwupdmgr refresh && sudo fwupdmgr update'
-alias update-nix='sudo determinate-nixd upgrade'
+# Functions shared by bash and zsh.
 
+# Symlink a file into /usr/local/bin.
 symlink-binary() {
   if [ $# -ne 1 ]; then
     echo "usage: symlink-binary <file>" >&2
@@ -16,6 +15,7 @@ symlink-binary() {
   sudo ln -s "$src" "/usr/local/bin/$(basename "$src")"
 }
 
+# Find and (optionally) remove dangling symlinks in /usr/local/bin.
 prune-binaries() {
   local dir=/usr/local/bin
   local dead

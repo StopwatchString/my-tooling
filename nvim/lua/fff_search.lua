@@ -2,9 +2,8 @@ local M = {}
 
 local safety = require('safety')
 local lsp_helpers = require('lsp')
-local _ = require('utils')
 
-local search_directory = _.pick_by_os({windows = 'C:\\dev', linux = '~/dev'})
+local search_directory = '~/dev'
 
 function M.setup()
     vim.api.nvim_create_autocmd('PackChanged', {

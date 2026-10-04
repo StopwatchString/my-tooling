@@ -2,25 +2,6 @@
     // Makes opening settings just open this file instead
     "workbench.settings.editor": "json",
 
-    // Controls what terminals are default available.
-    "terminal.integrated.profiles.windows": {
-        "PowerShell": {
-            "source": "PowerShell",
-            "icon": "terminal-powershell"
-        },
-        "Command Prompt": {
-            "path": [
-                "${env:windir}\\Sysnative\\cmd.exe",
-                "${env:windir}\\System32\\cmd.exe"
-            ],
-            "args": [],
-            "icon": "terminal-cmd"
-        },
-        "Git Bash": {
-            "source": "Git Bash"
-        }
-    },
-
     // Removes prompt asking if a workspace is trusted before opening.
     // This tends to get annoying when cloning new repos...
     "security.workspace.trust.untrustedFiles": "open",
@@ -51,14 +32,6 @@
     // Drag and dropping files has no prompt
     "explorer.confirmDragAndDrop": false,
     
-    // https://code.visualstudio.com/docs/setup/windows#_working-with-unc-paths
-    //
-    // As of version 1.78.1, VS Code on Windows only allows access to UNC paths 
-    // (these begin with a leading \\) that were either approved by the user on 
-    // startup or where the host name is configured to be allowed via the 
-    // security.allowedUNCHosts setting.
-    "security.restrictUNCAccess": false,
-
     // Moves the activity bar to the top on the sidebar.
     "workbench.activityBar.location": "top",
 

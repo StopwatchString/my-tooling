@@ -62,21 +62,21 @@ function M.is_string(var)
     return type(var) == 'string'
 end
 
-local is_windows = vim.uv.os_uname().sysname == 'Windows_NT'
-function M.is_windows()
-    return is_windows
-end
-
 local is_linux = vim.uv.os_uname().sysname == 'Linux'
 function M.is_linux()
     return is_linux
 end
 
+local is_macos = vim.uv.os_uname().sysname == 'Darwin'
+function M.is_macos()
+    return is_macos
+end
+
 function M.pick_by_os(opts)
-    if M.is_windows() then
-        return opts.windows
-    elseif M.is_linux() then
+    if M.is_linux() then
         return opts.linux
+    elseif M.is_macos() then
+        return opts.macos
     else
         return nil
     end

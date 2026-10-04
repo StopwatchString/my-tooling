@@ -29,12 +29,6 @@ if lsp_helpers then
     lsp_helpers.setup()
 end
 
--- Portable Environment
-local portable_environment = safety.checked_require('portable_environment')
-if portable_environment then
-    portable_environment.setup()
-end
-
 -- Bookmarks
 local bookmarks = safety.checked_require('bookmarks')
 if bookmarks then
@@ -125,15 +119,13 @@ vim.g.loaded_perl_provider = 0
 vim.g.loaded_node_provider = 0
 -- vim.g.node_host_prog
 
--- Opens fileexplorer in the current location
+-- Opens the OS file manager in the current location
 vim.keymap.set('n', '<leader>fv', function()
-    utils.pick_by_os({
-        windows = function()
-            local dir = vim.fn.expand('%:p:h'):gsub('/', '\\')
-            vim.fn.jobstart('explorer ' .. dir, { detach = true })
-        end
-    })
-end, { desc = 'Open explorer here' })
+    local opener = utils.pick_by_os({ linux = 'xdg-open', macos = 'open' })
+    if opener then
+        vim.fn.jobstart({ opener, vim.fn.expand('%:p:h') }, { detach = true })
+    end
+end, { desc = 'Open file manager here' })
 
 -- Sets the commentstring for jai files
 vim.api.nvim_create_autocmd('FileType', {

@@ -1,0 +1,20 @@
+# ~/.zshrc — symlinked from the dotfiles repo (shell/zsh/zshrc).
+
+# Repo root: this file's symlink-resolved path, two directories up.
+DOTFILES="${${(%):-%x}:A:h:h:h}"
+
+. "$DOTFILES/shell/init.sh"
+
+# --- zsh-specific ---
+HISTFILE="$HOME/.zsh_history"
+HISTSIZE=10000
+SAVEHIST=20000
+setopt APPEND_HISTORY SHARE_HISTORY HIST_IGNORE_DUPS HIST_IGNORE_SPACE
+setopt AUTO_CD INTERACTIVE_COMMENTS
+
+bindkey -e
+
+autoload -Uz compinit && compinit
+zstyle ':completion:*' matcher-list 'm:{a-z}={A-Z}'
+
+PROMPT='%F{green}%n@%m%f:%F{blue}%~%f%# '

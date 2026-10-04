@@ -3,8 +3,8 @@ local M = {}
 local _ = require('utils')
 local lsp_helpers = require('lsp')
 
-local PROJECT_SCRIPT_LOCATION = _.pick_by_os({ windows = '/nvim/', linux = '/nvim/' })
-local EXTENSION_TYPE = _.pick_by_os({ windows = '.bat', linux = '.sh' })
+local PROJECT_SCRIPT_LOCATION = '/nvim/'
+local EXTENSION_TYPE = '.sh'
 
 local last_successful_project_root = nil
 

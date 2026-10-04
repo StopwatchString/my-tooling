@@ -1,0 +1,40 @@
+# ~/.bashrc — symlinked from the dotfiles repo (shell/bash/bashrc).
+
+# Non-interactive shells: do nothing.
+case $- in
+  *i*) ;;
+  *) return ;;
+esac
+
+# Resolve the repo root by following the ~/.bashrc symlink. No `readlink -f`
+# because macOS ships bash 3.2 and older BSD readlink.
+_src="${BASH_SOURCE[0]}"
+while [ -L "$_src" ]; do
+  _dir="$(cd "$(dirname "$_src")" && pwd -P)"
+  _src="$(readlink "$_src")"
+  case "$_src" in /*) ;; *) _src="$_dir/$_src" ;; esac
+done
+DOTFILES="$(cd "$(dirname "$_src")/../.." && pwd -P)"
+unset _src _dir
+
+. "$DOTFILES/shell/init.sh"
+
+# --- bash-specific ---
+HISTCONTROL=ignoreboth
+HISTSIZE=10000
+HISTFILESIZE=20000
+shopt -s histappend checkwinsize
+
+# Completion (Linux system package, or Homebrew's bash-completion@2 on macOS).
+if ! shopt -oq posix; then
+  for _f in /usr/share/bash-completion/bash_completion /etc/bash_completion \
+            "${HOMEBREW_PREFIX:-/opt/homebrew}/etc/profile.d/bash_completion.sh"; do
+    if [ -r "$_f" ]; then . "$_f"; break; fi
+  done
+  unset _f
+fi
+
+PS1='\[\e[01;32m\]\u@\h\[\e[00m\]:\[\e[01;34m\]\w\[\e[00m\]\$ '
+case "$TERM" in
+  xterm*|rxvt*|tmux*|screen*) PS1="\[\e]0;\u@\h: \w\a\]$PS1" ;;
+esac

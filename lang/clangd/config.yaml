@@ -1,0 +1,16 @@
+# User-level clangd config. Symlinked by setup.sh to:
+#   Linux: ~/.config/clangd/config.yaml
+#   macOS: ~/Library/Preferences/clangd/config.yaml
+# Project .clangd files override this.
+# Reference: https://clangd.llvm.org/config
+
+CompileFlags:
+  Add: [-Wall, -Wextra]
+
+Diagnostics:
+  UnusedIncludes: Strict
+
+InlayHints:
+  Enabled: true
+  ParameterNames: true
+  DeducedTypes: true
