@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "home-search": {
+      "url": "http://192.168.0.41:8090/mcp",
+      "headers": { "Authorization": "Bearer ${HOME_AI_KEY}" },
+      "description": "Web search (SearXNG on the home server) and reading web pages as Markdown",
+      "exposure": "direct",
+      "toolExposure": {
+        "searxng_search_suggestions": "hidden",
+        "searxng_instance_info": "hidden"
+      }
+    }
+  }
+}

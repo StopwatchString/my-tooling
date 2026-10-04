@@ -61,7 +61,8 @@ method name. Run `./dev-setup.sh` if `.pi-sdk` is missing.
   runtime from an untracked file.
 - Nothing specific to one machine's hardware or local services. Keep that in
   `~/.pi/agent/` directly. The exception is the home model server, which every
-  machine on the LAN uses: `home-models.ts` holds its address and model list.
+  machine on the LAN uses: `home-models.ts` holds its address and model list,
+  and `mcp.json` its web search MCP server (`home-search`).
   Its key comes from 1Password into `$HOME_AI_KEY` at launch, never from this repo.
 
 ## Checks (run all of these before saying you're done)

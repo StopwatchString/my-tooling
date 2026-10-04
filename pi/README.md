@@ -15,6 +15,7 @@ Formerly the separate `~/dev/pi-harness` repo, which is retired.
 |---|---|---|
 | `extensions/`, `skills/`, `prompts/`, `themes/` | same names | directory symlinks; pi auto-loads them |
 | `keybindings.json` | `keybindings.json` | symlink (empty for now; see pi's `docs/keybindings.md`) |
+| `mcp.json` | `mcp.json` | symlink; pi's built-in MCP servers (see below) |
 | `APPEND_SYSTEM.md` | `APPEND_SYSTEM.md` | symlink; pi-only instructions appended to the system prompt |
 | `../agents/AGENTS.md` | `AGENTS.md` | symlink; shared with Claude Code |
 | `settings.json` | `settings.json` | **merged**, not linked (see below) |
@@ -37,6 +38,17 @@ the live file has drifted.
 | `hideThinkingBlock` | `true` | hide thinking in the transcript (`thinking-tokens.ts` removes the lines and puts the estimate in the working row; Ctrl+T toggles) |
 
 To try a value without committing, edit the live file directly.
+
+### MCP servers
+
+`mcp.json` uses pi's built-in MCP support (`docs/mcp.md`). Changes made in
+`/mcp` (exposure, enable/disable) and `pi mcp add`/`remove` write through the
+symlink into this repo, so they show up in `git diff`; keep only servers every
+machine should have here.
+
+| Server | What |
+|---|---|
+| `home-search` | Web search on the home server (socrates, `~/serve/search`: SearXNG + mcp-searxng) at `http://192.168.0.41:8090/mcp`. `searxng_web_search` and `web_url_read` are `direct` tools; the other two are hidden. Bearer key `$HOME_AI_KEY`, the same one as `home-models.ts`. Unlike the router, it needs the key on socrates too: `~/.config/shell/local.sh` there exports it from `~/serve/ai/.env`. Check with `pi mcp list`. |
 
 ## Contents
 
