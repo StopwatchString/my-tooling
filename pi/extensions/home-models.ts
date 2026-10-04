@@ -8,7 +8,7 @@
  *   saying what the models are for and how many requests run at once.
  *
  * Key: $HOME_AI_KEY. The `pi` shell function (shell/common/functions.sh)
- * fills it from 1Password (op://Private/home-ai-server/credential) for each
+ * fills it from 1Password (op://Personal/home-ai-server/credential) for each
  * run; it is never stored in a file on client machines. On socrates the
  * server's own ~/serve/ai/.env is used. $HOME_AI_URL overrides the default
  * http://192.168.0.41:8000.

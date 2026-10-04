@@ -41,7 +41,7 @@ prune-binaries() {
 pi() {
   if [ -z "${HOME_AI_KEY:-}" ] && has_cmd op; then
     local key
-    if key="$(op read "${HOME_AI_KEY_REF:-op://Private/home-ai-server/credential}" 2>/dev/null)"; then
+    if key="$(op read "${HOME_AI_KEY_REF:-op://Personal/home-ai-server/credential}" 2>/dev/null)"; then
       HOME_AI_KEY="$key" command pi "$@"
       return
     fi
