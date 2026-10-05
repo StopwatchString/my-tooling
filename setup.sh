@@ -26,6 +26,8 @@ submodules_ok() {
 submodules_init() { git -C "$DOTFILES" submodule update --init --depth 1; }
 fonts_ok()        { "$DOTFILES/scripts/install-fonts.sh" --check; }
 fonts_install()   { "$DOTFILES/scripts/install-fonts.sh"; }
+nvim_ok()         { "$DOTFILES/scripts/install-nvim.sh" --check; }
+nvim_install()    { "$DOTFILES/scripts/install-nvim.sh"; }
 gterm_ok()        { "$DOTFILES/scripts/gnome-terminal-profile.sh" check; }
 gterm_load()      { "$DOTFILES/scripts/gnome-terminal-profile.sh" load; }
 
@@ -74,9 +76,10 @@ manifest() {
     'if .packages then .packages |= map(select(tostring | test("pi-harness") | not))
        | if .packages == [] then del(.packages) else . end else . end'
 
-  # Not files: plugins, fonts, terminal settings
+  # Not files: plugins, fonts, Neovim nightly, terminal settings
   step "zsh plugin submodules"      submodules_ok submodules_init
   step "fonts + terminal font"      fonts_ok      fonts_install
+  step "Neovim nightly"             nvim_ok       nvim_install
   step "GNOME Terminal profile"     gterm_ok      gterm_load
 }
 

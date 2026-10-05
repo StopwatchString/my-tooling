@@ -25,6 +25,8 @@ submodules_ok() {
 submodules_init() { git -C "$DOTFILES" submodule update --init --depth 1; }
 fonts_ok()        { "$DOTFILES/scripts/install-fonts.sh" --check; }
 fonts_install()   { "$DOTFILES/scripts/install-fonts.sh"; }
+nvim_ok()         { "$DOTFILES/scripts/install-nvim.sh" --check; }
+nvim_install()    { "$DOTFILES/scripts/install-nvim.sh"; }
 
 CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 APP_SUPPORT="$HOME/Library/Application Support"
@@ -70,9 +72,10 @@ manifest() {
     'if .packages then .packages |= map(select(tostring | test("pi-harness") | not))
        | if .packages == [] then del(.packages) else . end else . end'
 
-  # Not files: plugins, fonts
+  # Not files: plugins, fonts, Neovim nightly
   step "zsh plugin submodules"      submodules_ok submodules_init
   step "fonts"                      fonts_ok      fonts_install
+  step "Neovim nightly"             nvim_ok       nvim_install
 }
 
 link_main "$@"

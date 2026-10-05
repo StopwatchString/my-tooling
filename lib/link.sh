@@ -19,7 +19,7 @@ Usage: $(basename "$0") [option]
 Symlink this repo's configs into \$HOME. A few JSON configs that their app
 rewrites itself (pi's settings.json) are merged into the live file instead.
 Then run the setup steps that aren't files (zsh plugin submodules, fonts,
-terminal settings), each only when its check says it's needed.
+Neovim nightly, terminal settings), each only when its check says it's needed.
 
   (none)        Create or refresh everything. Existing files are moved to
                 <name>.backup.<timestamp>; existing symlinks are replaced.

@@ -8,7 +8,12 @@ local search_directory = '~/dev'
 function M.setup()
     vim.api.nvim_create_autocmd('PackChanged', {
         callback = function(event)
-            if event.data.spec.name == 'fff.nvim' and event.data.updated then
+            local kind = event.data.kind
+            if event.data.spec.name == 'fff.nvim' and (kind == 'install' or kind == 'update') then
+                -- On install the plugin isn't on the runtimepath yet
+                if not event.data.active then
+                    vim.cmd.packadd('fff.nvim')
+                end
                 require('fff.download').download_or_build_binary()
             end
         end,
@@ -17,6 +22,18 @@ function M.setup()
     vim.pack.add({
         'https://github.com/dmtrKovalenko/fff.nvim'
     })
+
+    -- Fallback when a previous install hook failed: fetch the binary if it's missing
+    local download = safety.checked_require('fff.download')
+    if download and not vim.uv.fs_stat(download.get_binary_path()) then
+        download.ensure_downloaded({}, function(ok, err)
+            if not ok then
+                vim.schedule(function()
+                    vim.notify('fff.nvim binary download failed: ' .. (err or 'unknown error'), vim.log.levels.ERROR)
+                end)
+            end
+        end)
+    end
 
     local fff = safety.checked_require('fff')
     if not fff then

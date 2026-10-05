@@ -43,7 +43,7 @@ pi/                   pi coding agent config (formerly ~/dev/pi-harness); see
                       keybindings.json mcp.json APPEND_SYSTEM.md are linked into
                       ~/.pi/agent/; settings.json is merged, not linked.
                       Machine-specific bits (models.json) stay untracked.
-scripts/              Standalone utilities, not linked (install-nvim-ubuntu.sh,
+scripts/              Standalone utilities, not linked (install-nvim.sh,
                       nvidia-nix-link.sh, install-fonts.sh,
                       gnome-terminal-profile.sh load|export, cheatsheet.sh
                       a.k.a. the `cheat` alias)
@@ -63,9 +63,9 @@ nixos/templates/      Reference NixOS configuration.nix, not linked
 - Each script just sets `$DOTFILES`, defines `manifest()` and calls
   `link_main "$@"`. The behavior lives in `lib/link.sh`.
 - Setup does everything, not just links. `step <name> <check fn> <apply fn>`
-  covers the rest: zsh plugin submodules, fonts + terminal font, GNOME
-  Terminal profile (macOS: submodules and fonts). The apply function only runs
-  when the check fails; `-s` shows `ok`/`todo`, `-n` shows `run`, `-u` leaves
+  covers the rest: zsh plugin submodules, fonts + terminal font, Neovim
+  nightly, GNOME Terminal profile (macOS: submodules, fonts, Neovim
+  nightly). The apply function only runs when the check fails; `-s` shows `ok`/`todo`, `-n` shows `run`, `-u` leaves
   steps alone. Scripts that back a step take a `--check`/`check` mode that
   changes nothing and exits 0 when already done.
 - `merge_json <repo path> <dest> [jq filter]` is the alternative to `entry`
@@ -116,6 +116,12 @@ nixos/templates/      Reference NixOS configuration.nix, not linked
 
 ## nvim notes
 
+- Neovim itself is the **nightly** build (distro repos and Homebrew only ship
+  releases). `scripts/install-nvim.sh`, run as a setup step, unpacks the
+  GitHub `nightly` tarball to `~/.local/opt/nvim-nightly` and links
+  `~/.local/bin/nvim`; no sudo. Its check compares `nvim --version` with the
+  release notes, so re-running `./setup.sh` updates nvim when a newer nightly
+  is out.
 - `lua/utils.lua` has `is_linux`, `is_macos`, `pick_by_os({ linux=, macos= })`.
 - Modules load through `safety.checked_require`, so one broken module doesn't
   take down the whole config.
