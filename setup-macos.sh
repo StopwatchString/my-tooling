@@ -15,6 +15,17 @@ fi
 
 . "$DOTFILES/lib/link.sh"
 
+# Check and apply functions for the setup steps that aren't files (see `step`
+# in lib/link.sh). A submodule line starting with '-' isn't checked out yet.
+submodules_ok() {
+  local s
+  s="$(git -C "$DOTFILES" submodule status)" || return 1
+  [[ $s != -* && $s != *$'\n-'* ]]
+}
+submodules_init() { git -C "$DOTFILES" submodule update --init --depth 1; }
+fonts_ok()        { "$DOTFILES/scripts/install-fonts.sh" --check; }
+fonts_install()   { "$DOTFILES/scripts/install-fonts.sh"; }
+
 CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 APP_SUPPORT="$HOME/Library/Application Support"
 
@@ -57,6 +68,10 @@ manifest() {
   merge_json pi/settings.json     "$pi_dir/settings.json" \
     'if .packages then .packages |= map(select(tostring | test("pi-harness") | not))
        | if .packages == [] then del(.packages) else . end else . end'
+
+  # Not files: plugins, fonts
+  step "zsh plugin submodules"      submodules_ok submodules_init
+  step "fonts"                      fonts_ok      fonts_install
 }
 
 link_main "$@"

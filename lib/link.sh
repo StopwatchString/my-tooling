@@ -2,7 +2,8 @@
 #
 # The sourcing script sets $DOTFILES, defines manifest() as a list of
 # `entry <path in repo> <destination>` calls (and `merge_json` for configs an
-# app rewrites itself), then runs `link_main "$@"`.
+# app rewrites itself, `step` for setup that isn't a file), then runs
+# `link_main "$@"`.
 # Must stay compatible with bash 3.2 (macOS /bin/bash): no associative arrays,
 # no mapfile, no `readlink -f`.
 
@@ -17,12 +18,14 @@ Usage: $(basename "$0") [option]
 
 Symlink this repo's configs into \$HOME. A few JSON configs that their app
 rewrites itself (pi's settings.json) are merged into the live file instead.
+Then run the setup steps that aren't files (zsh plugin submodules, fonts,
+terminal settings), each only when its check says it's needed.
 
   (none)        Create or refresh everything. Existing files are moved to
                 <name>.backup.<timestamp>; existing symlinks are replaced.
                 Merged files are backed up the same way before they change.
                 Safe to re-run.
-  -n, --dry-run Print what would change (link, relink, backup, merge)
+  -n, --dry-run Print what would change (link, relink, backup, merge, run)
                 without touching anything.
   -s, --status  Show the state of every managed path:
                   ok      linked into this repo (or merged and up to date)
@@ -30,9 +33,10 @@ rewrites itself (pi's settings.json) are merged into the live file instead.
                   FILE    a real file is in the way (will be backed up)
                   OTHER   a symlink pointing somewhere else (will be replaced)
                   DIFF    a merged file has drifted from the repo values
+                  todo    a setup step still needs to run
   -u, --uninstall
-                Remove managed symlinks that point into this repo. Backups
-                and merged files are left in place.
+                Remove managed symlinks that point into this repo. Backups,
+                merged files and what setup steps did are left in place.
   -h, --help    Show this help.
 EOF
 }
@@ -145,6 +149,33 @@ merge_json() {
   esac
 }
 
+# step <name> <check function> <apply function>
+# For setup that isn't a file to link: fetching submodules, installing fonts,
+# terminal settings. The check function returns 0 when nothing needs doing
+# (its output is hidden); the apply function does the work. Uninstall leaves
+# steps alone.
+step() {
+  local name="$1" check="$2" apply="$3"
+  case $MODE in
+    status)
+      if "$check" >/dev/null 2>&1; then say ok "$name"; else say todo "$name"; fi
+      ;;
+
+    uninstall) ;;
+
+    install|dry-run)
+      if "$check" >/dev/null 2>&1; then
+        return
+      fi
+      say run "$name"
+      if [[ $MODE == install ]] && ! "$apply"; then
+        say FAILED "$name"; problems=$((problems + 1)); return
+      fi
+      changes=$((changes + 1))
+      ;;
+  esac
+}
+
 link_main() {
   case "${1:-}" in
     "")              MODE=install ;;
@@ -159,8 +190,8 @@ link_main() {
   manifest
 
   case $MODE in
-    install)   echo "$changes link(s) changed." ;;
-    dry-run)   echo "$changes link(s) would change." ;;
+    install)   echo "$changes change(s) made." ;;
+    dry-run)   echo "$changes change(s) would be made." ;;
     uninstall) echo "$changes link(s) removed." ;;
   esac
   (( problems == 0 )) || { echo "$problems problem(s)." >&2; exit 1; }

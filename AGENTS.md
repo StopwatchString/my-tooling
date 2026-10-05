@@ -25,8 +25,10 @@ shell/
 nvim/                 -> ~/.config/nvim (Neovim 0.12+ config; uses vim.pack)
 tmux/.tmux.conf       -> ~/.tmux.conf
 gnome-terminal/profile.dconf  GNOME Terminal profile (Solarized Dark, font);
-                      applied by scripts/gnome-terminal-profile.sh, not linked
-fonts/                UbuntuMono Nerd Font Mono TTFs (scripts/install-fonts.sh)
+                      loaded by setup.sh via scripts/gnome-terminal-profile.sh
+fonts/                UbuntuMono Nerd Font Mono TTFs, installed by setup.sh via
+                      scripts/install-fonts.sh (also sets GNOME Terminal /
+                      Ptyxis to the font)
 vscode/               settings.json, keybindings.json -> VS Code's User dir
 ssh/config            -> ~/.ssh/config (hosts + agent selection; includes the
                       untracked ~/.ssh/config.local)
@@ -59,6 +61,12 @@ nixos/templates/      Reference NixOS configuration.nix, not linked
   `<dest>.backup.<timestamp>`, and a symlink pointing somewhere else is replaced.
 - Each script just sets `$DOTFILES`, defines `manifest()` and calls
   `link_main "$@"`. The behavior lives in `lib/link.sh`.
+- Setup does everything, not just links. `step <name> <check fn> <apply fn>`
+  covers the rest: zsh plugin submodules, fonts + terminal font, GNOME
+  Terminal profile (macOS: submodules and fonts). The apply function only runs
+  when the check fails; `-s` shows `ok`/`todo`, `-n` shows `run`, `-u` leaves
+  steps alone. Scripts that back a step take a `--check`/`check` mode that
+  changes nothing and exits 0 when already done.
 - `merge_json <repo path> <dest> [jq filter]` is the alternative to `entry`
   for JSON an app rewrites itself (pi's settings.json): the repo file's keys
   are merged over the live file, the filter runs after, `-s` reports `DIFF` on
@@ -117,8 +125,11 @@ nixos/templates/      Reference NixOS configuration.nix, not linked
 There are no tests. Before committing:
 - `bash -n` / `zsh -n` on any changed shell files (both shells for shared ones).
 - `HOME=$(mktemp -d) ./setup.sh` followed by `./setup.sh -s` gives a full run in
-  a sandbox home. To exercise the macOS route, put a stub `uname` that prints
-  `Darwin` for `-s` first on `PATH`.
+  a sandbox home. Add `GSETTINGS_BACKEND=memory` so the terminal steps don't
+  touch the real desktop settings; terminal-font checks then always say
+  `todo`, because dconf reads its database from `$HOME`. To exercise the
+  macOS route, put a stub `uname` that prints `Darwin` for `-s` first on
+  `PATH`.
 - `HOME=<sandbox> bash -ic 'echo $DOTFILES'` and the same with `zsh -ic`
   check that the shells start up.
 

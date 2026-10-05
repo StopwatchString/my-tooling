@@ -16,6 +16,19 @@ esac
 
 . "$DOTFILES/lib/link.sh"
 
+# Check and apply functions for the setup steps that aren't files (see `step`
+# in lib/link.sh). A submodule line starting with '-' isn't checked out yet.
+submodules_ok() {
+  local s
+  s="$(git -C "$DOTFILES" submodule status)" || return 1
+  [[ $s != -* && $s != *$'\n-'* ]]
+}
+submodules_init() { git -C "$DOTFILES" submodule update --init --depth 1; }
+fonts_ok()        { "$DOTFILES/scripts/install-fonts.sh" --check; }
+fonts_install()   { "$DOTFILES/scripts/install-fonts.sh"; }
+gterm_ok()        { "$DOTFILES/scripts/gnome-terminal-profile.sh" check; }
+gterm_load()      { "$DOTFILES/scripts/gnome-terminal-profile.sh" load; }
+
 CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 
 # One `entry <path in repo> <destination>` per managed link. Add new configs
@@ -59,6 +72,11 @@ manifest() {
   merge_json pi/settings.json     "$pi_dir/settings.json" \
     'if .packages then .packages |= map(select(tostring | test("pi-harness") | not))
        | if .packages == [] then del(.packages) else . end else . end'
+
+  # Not files: plugins, fonts, terminal settings
+  step "zsh plugin submodules"      submodules_ok submodules_init
+  step "fonts + terminal font"      fonts_ok      fonts_install
+  step "GNOME Terminal profile"     gterm_ok      gterm_load
 }
 
 link_main "$@"

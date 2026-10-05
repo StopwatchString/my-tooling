@@ -73,7 +73,7 @@ add-zsh-hook precmd _cursor_block
 [[ -n ${TMUX:-} ]] && add-zsh-hook precmd ssh-refresh
 
 # Fallback prompt; replaced by Powerlevel10k below when it's available.
-PROMPT='%F{green}%n@%m%f:%F{blue}%~%f%(!.#.$) '
+PROMPT='%B%F{green}%n@%m%f%b:%B%F{blue}%~%f%b%(!.#.$) '
 export PATH="$HOME/.local/bin:$PATH"
 
 # zsh-autosuggestions: suggest from history, then completion; Ctrl-Space accepts.
