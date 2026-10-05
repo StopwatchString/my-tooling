@@ -39,6 +39,7 @@ manifest() {
   # Terminal / editors (nvim uses ~/.config on macOS too)
   entry tmux/.tmux.conf           "$HOME/.tmux.conf"
   entry nvim                      "$CONFIG_HOME/nvim"
+  entry ghostty/config            "$CONFIG_HOME/ghostty/config"
   entry vscode/settings.json      "$APP_SUPPORT/Code/User/settings.json"
   entry vscode/keybindings.json   "$APP_SUPPORT/Code/User/keybindings.json"
 

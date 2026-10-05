@@ -24,11 +24,12 @@ shell/
   zsh/plugins/        git submodules: powerlevel10k, zsh-autosuggestions
 nvim/                 -> ~/.config/nvim (Neovim 0.12+ config; uses vim.pack)
 tmux/.tmux.conf       -> ~/.tmux.conf
+ghostty/config        -> ~/.config/ghostty/config (both OSes; font, theme)
 gnome-terminal/profile.dconf  GNOME Terminal profile (Solarized Dark, font);
                       loaded by setup.sh via scripts/gnome-terminal-profile.sh
 fonts/                UbuntuMono Nerd Font Mono TTFs, installed by setup.sh via
                       scripts/install-fonts.sh (also sets GNOME Terminal /
-                      Ptyxis to the font)
+                      Ptyxis to the font; Ghostty sets it in ghostty/config)
 vscode/               settings.json, keybindings.json -> VS Code's User dir
 ssh/config            -> ~/.ssh/config (hosts + agent selection; includes the
                       untracked ~/.ssh/config.local)
@@ -180,6 +181,6 @@ Caveats / open items:
 - `agents/AGENTS.md` is a starter. Grow it with real preferences.
 - The macOS path has only been exercised with a stubbed `uname`, never on a
   real Mac.
-- Candidates to add later: git config (global gitignore, aliases), ghostty or
-  other terminal config, `.editorconfig`, rustfmt/ruff/prettier configs under
+- Candidates to add later: git config (global gitignore, aliases), other terminal
+  configs, `.editorconfig`, rustfmt/ruff/prettier configs under
   `lang/`, a package bootstrap (apt list / Brewfile).

@@ -1,0 +1,10 @@
+# Ghostty config -> ~/.config/ghostty/config (Ghostty reads this path on macOS
+# too). Font matches scripts/install-fonts.sh, which installs it.
+font-family = "UbuntuMono Nerd Font Mono"
+font-size = 13
+
+theme = iTerm2 Solarized Dark
+
+# no-cursor keeps the block cursor instead of the shell-integration bar
+cursor-style = block
+shell-integration-features = no-cursor,sudo,ssh-env,ssh-terminfo

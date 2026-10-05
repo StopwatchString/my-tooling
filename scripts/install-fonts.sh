@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Install the fonts in fonts/ for the current user and make UbuntuMono Nerd
-# Font Mono the GNOME Terminal / Ptyxis font.
+# Font Mono the GNOME Terminal / Ptyxis font. Ghostty gets the font from
+# ghostty/config, which setup.sh links.
 set -euo pipefail
 
 DOTFILES="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
@@ -22,7 +23,8 @@ setup.sh runs this as one of its steps.
             not, listing what's missing.
 
 The rest of the GNOME Terminal profile (colors, bell) is applied by
-scripts/gnome-terminal-profile.sh load.
+scripts/gnome-terminal-profile.sh load. Ghostty needs nothing here: its font
+is set in ghostty/config, which setup.sh links.
 EOF
 }
 
@@ -95,5 +97,5 @@ if has_schema org.gnome.Ptyxis; then
 fi
 
 if (( terminals == 0 )); then
-  echo "no GNOME Terminal or Ptyxis found; set the terminal font to $FONT_NAME by hand"
+  echo "no GNOME Terminal or Ptyxis found; Ghostty gets $FONT_NAME from ghostty/config, other terminals need it set by hand"
 fi

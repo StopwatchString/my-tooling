@@ -43,6 +43,7 @@ manifest() {
   # Terminal / editors
   entry tmux/.tmux.conf           "$HOME/.tmux.conf"
   entry nvim                      "$CONFIG_HOME/nvim"
+  entry ghostty/config            "$CONFIG_HOME/ghostty/config"
   entry vscode/settings.json      "$CONFIG_HOME/Code/User/settings.json"
   entry vscode/keybindings.json   "$CONFIG_HOME/Code/User/keybindings.json"
 
