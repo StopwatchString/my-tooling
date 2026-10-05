@@ -40,19 +40,20 @@
  * at <repo>/worktrees/pi-agent-<work> on a branch of the same name (<work> from its
  * description; `/worktrees/` goes in .git/info/exclude), branched from the main checkout's
  * HEAD, so agents build and test without stepping on each other; its stage agents work
- * there too. Merge-back commits the work on the branch. If the main checkout's branch has
- * moved, a fresh `merger:` agent rebases onto it, resolves conflicts and re-runs the checks.
- * Then the main branch is fast-forwarded and the worktree and branch removed. Merges into
- * one checkout run one at a time. Work that fails review or can't be fast-forwarded stays
- * on its branch, and the report says where.
+ * there too. Merge-back commits the work on the branch, then takes the repository's merge
+ * lock (a file in the git dir, shared by every pi process) and loops: if the main checkout's
+ * branch has moved past what the worktree has, a fresh `merger:` agent merges it into the
+ * worktree, resolves conflicts and re-runs the checks; once the worktree has the branch's
+ * tip, the branch is fast-forwarded to it and the worktree and branch removed. Work that
+ * fails review or can't be fast-forwarded stays on its branch, and the report says where.
  *
  * Concurrency is per model provider: `subagents.maxConcurrency` in
  * ~/.pi/agent/settings.json, either a number or { "default": 3, "<provider>": n }.
  * $PI_AGENT_MAX_CONCURRENCY overrides the default; the fallback is 3.
  */
 import { execFile } from "node:child_process";
-import { appendFileSync, existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { appendFileSync, existsSync, linkSync, mkdirSync, readFileSync, realpathSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
+import { hostname, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
@@ -82,7 +83,7 @@ const KEEP_FINISHED = 8;
 const TAIL_LINES = 30;
 /** Reviews per task when a `then:` personality gives no `rounds`. */
 const DEFAULT_ROUNDS = 2;
-/** Rebases per merge-back before giving up on a main branch that keeps moving. */
+/** Merges of the main branch into a worktree before giving up on a branch that keeps moving. */
 const MERGE_ATTEMPTS = 3;
 /** Agents' worktrees go in this directory at the top of the repository. */
 const WORKTREES_DIR = "worktrees";
@@ -110,7 +111,7 @@ export type Worktree = {
 	branch: string;
 	/** Branch of the main checkout the work merges back into. */
 	target: string;
-	/** Commit the worktree started from (later: the commit it was last rebased onto). */
+	/** Commit the worktree started from (later: the main-branch commit last merged into it). */
 	base: string;
 	notes: string[];
 	/** Short sha now at the tip of `target`, or "nothing to merge"; the worktree is gone. */
@@ -333,12 +334,71 @@ async function isAncestor(cwd: string, a: string, b: string): Promise<boolean> {
 	);
 }
 
-async function rebaseInProgress(wt: Worktree): Promise<boolean> {
+/** A merge or rebase left half done in the worktree. */
+async function mergeInProgress(wt: Worktree): Promise<boolean> {
+	if (await git(wt.path, "rev-parse", "-q", "--verify", "MERGE_HEAD").then(() => true, () => false)) return true;
 	for (const dir of ["rebase-merge", "rebase-apply"]) {
 		const p = await git(wt.path, "rev-parse", "--path-format=absolute", "--git-path", dir);
 		if (existsSync(p)) return true;
 	}
 	return false;
+}
+
+function pidAlive(pid: number): boolean {
+	try {
+		process.kill(pid, 0);
+		return true;
+	} catch (e) {
+		return (e as NodeJS.ErrnoException).code === "EPERM";
+	}
+}
+
+/**
+ * Take the repository's merge lock, shared by every pi process: <git common dir>/pi-merge.lock,
+ * created exclusively and holding its owner. Waits (calling `waiting` each second) while someone
+ * else holds it; a lock whose process on this host is gone is taken over. Resolves to the release.
+ */
+async function lockMerges(root: string, owner: string, halted: () => boolean, waiting: (holder: string) => void): Promise<() => void> {
+	const file = join(await git(root, "rev-parse", "--path-format=absolute", "--git-common-dir"), "pi-merge.lock");
+	const mine = JSON.stringify({ pid: process.pid, host: hostname(), owner, since: new Date().toISOString() });
+	for (;;) {
+		try {
+			writeFileSync(file, mine, { flag: "wx" });
+			return () => {
+				try {
+					if (readFileSync(file, "utf8") === mine) unlinkSync(file);
+				} catch {
+					// already gone
+				}
+			};
+		} catch (e) {
+			if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
+		}
+		let text = "";
+		let holder: { pid?: number; host?: string; owner?: string; since?: string } = {};
+		try {
+			text = readFileSync(file, "utf8");
+			holder = JSON.parse(text);
+		} catch {
+			// gone again, or still being written: retry below
+		}
+		if (holder.pid && holder.host === hostname() && !pidAlive(holder.pid)) {
+			// Stale: move it aside, and drop it only if it's still the stale one (another waiter may have replaced it).
+			const aside = `${file}.${process.pid}`;
+			try {
+				renameSync(file, aside);
+				// A live lock moved aside by mistake goes back, unless a new one already took its place.
+				if (readFileSync(aside, "utf8") !== text) linkSync(aside, file);
+				unlinkSync(aside);
+			} catch {
+				// someone else got there first
+			}
+			continue;
+		}
+		if (halted()) throw new Error("stopped while waiting for the merge lock");
+		waiting(text ? `${holder.owner ?? "?"}, pid ${holder.pid ?? "?"}${holder.host === hostname() ? "" : ` on ${holder.host}`}` : "?");
+		await new Promise((resolve) => setTimeout(resolve, 1000));
+	}
 }
 
 export default function (pi: ExtensionAPI) {
@@ -357,7 +417,6 @@ export default function (pi: ExtensionAPI) {
 	 */
 	const blocks = new Map<string, { run: Run; done: Promise<void>; invalidate?: () => void; settled?: boolean }>();
 	let closing = false; // session_shutdown in progress: no pruning or delivery
-	const mergeLocks = new Map<string, Promise<void>>(); // per main checkout: one merge-back at a time
 
 	// --- concurrency -------------------------------------------------------
 
@@ -527,19 +586,6 @@ export default function (pi: ExtensionAPI) {
 		flush();
 	}
 
-	/** Run `fn` after every earlier call for the same `key` has settled (merges into one checkout). */
-	function serialize<T>(key: string, fn: () => Promise<T>): Promise<T> {
-		const next = (mergeLocks.get(key) ?? Promise.resolve()).then(fn);
-		mergeLocks.set(
-			key,
-			next.then(
-				() => undefined,
-				() => undefined,
-			),
-		);
-		return next;
-	}
-
 	/**
 	 * One unit of work: set up the worktree (first time), a prompt cycle, then the pipeline, each
 	 * stage a fresh agent in the same worktree: tests (`tests: true`), review rounds (`then:`; on a
@@ -687,8 +733,9 @@ export default function (pi: ExtensionAPI) {
 	}
 
 	/**
-	 * Commit the work on its branch and fast-forward the main checkout's branch to it. If that
-	 * branch moved since the work started, a fresh merger agent first rebases onto it and re-checks.
+	 * Commit the work on its branch and land it on the main checkout's branch, holding the
+	 * repository's merge lock (lockMerges) throughout so no other merge-back, in this or any
+	 * other pi, lands in between.
 	 */
 	async function mergeBack(ctx: ExtensionContext, run: Run, latest: string) {
 		const wt = run.wt!;
@@ -698,7 +745,22 @@ export default function (pi: ExtensionAPI) {
 		try {
 			await commitAll(wt, subject);
 			if ((await git(wt.path, "rev-list", "--count", `${wt.base}..HEAD`)) === "0") wt.merged = "nothing to merge";
-			else await serialize(wt.root, () => land(ctx, run, wt, subject, latest));
+			else {
+				const release = await lockMerges(
+					wt.root,
+					`${run.id} ${wt.branch}`,
+					() => !!run.halt,
+					(holder) => {
+						run.stage = `waiting for merge lock (${holder})`;
+						changed(run);
+					},
+				);
+				try {
+					await land(ctx, run, wt, subject, latest);
+				} finally {
+					release();
+				}
+			}
 		} catch (e) {
 			wt.notes.push(`Not merged: ${errorText(e)}`);
 			return;
@@ -710,25 +772,46 @@ export default function (pi: ExtensionAPI) {
 		}
 	}
 
+	/**
+	 * The merge loop, under the lock: (1) check that the worktree has the main branch's current
+	 * tip; (2) if not, a fresh merger agent merges that tip into the worktree, resolves conflicts
+	 * and re-runs the checks, and back to (1); (3) once it has, fast-forward the main branch to it.
+	 */
 	async function land(ctx: ExtensionContext, run: Run, wt: Worktree, subject: string, latest: string) {
-		for (let attempt = 1; ; attempt++) {
+		let merges = 0;
+		for (let check = 1; check <= MERGE_ATTEMPTS * 2; check++) {
+			run.stage = "merge";
+			changed(run);
 			const current = await git(wt.root, "symbolic-ref", "-q", "--short", "HEAD").catch(() => "");
 			if (current !== wt.target) throw new Error(`the main checkout is on ${current || "a detached HEAD"} now, not ${wt.target}`);
 			const head = await git(wt.root, "rev-parse", "HEAD");
-			if (await isAncestor(wt.path, head, "HEAD")) break;
-			if (attempt > MERGE_ATTEMPTS) throw new Error(`${wt.target} kept moving (${MERGE_ATTEMPTS} rebases)`);
-			const mg = await stage(ctx, run, `rebase ${attempt}/${MERGE_ATTEMPTS}`, `merge ${run.id}`, run.persona?.merger ?? "merger", [
+			if (await isAncestor(wt.path, head, "HEAD")) {
+				try {
+					await git(wt.root, "merge", "-q", "--ff-only", wt.branch);
+				} catch (e) {
+					// Moved outside pi between the check and the merge: check again. Otherwise (say,
+					// uncommitted edits in the main checkout are in the way) give up.
+					if ((await git(wt.root, "rev-parse", "HEAD")) === head) throw e;
+					continue;
+				}
+				wt.base = head;
+				wt.merged = await git(wt.root, "rev-parse", "--short", "HEAD");
+				return;
+			}
+			if (++merges > MERGE_ATTEMPTS) break;
+			const mg = await stage(ctx, run, `merging ${wt.target} ${merges}/${MERGE_ATTEMPTS}`, `merge ${run.id}`, run.persona?.merger ?? "merger", [
 				`Another agent's change, implementing the spec below, is committed on branch ${wt.branch} in the git worktree`,
-				`you're working in. Since it started, ${wt.target} in the main checkout moved from ${wt.base.slice(0, 8)} to`,
-				`${head.slice(0, 8)}. Bring the branch up to date so it can be fast-forwarded into ${wt.target}:`,
+				`you're working in. Since the worktree last matched it, ${wt.target} in the main checkout moved from`,
+				`${wt.base.slice(0, 8)} to ${head.slice(0, 8)}. Bring the branch up to date so ${wt.target} can be fast-forwarded to it:`,
 				"",
-				`1. Run \`git rebase ${head}\`. Resolve conflicts so both sides' intent survives, then \`git add\` and`,
-				"   `git rebase --continue`.",
+				`1. Run \`git merge --no-ff -m "Merge ${wt.target} into ${wt.branch}" ${head}\`. Resolve any conflicts so both`,
+				"   sides' intent survives, then `git add` the files and `git commit --no-edit`.",
 				"2. Re-run the checks that cover the change (build, tests) on the combined code and fix what breaks,",
 				"   committing the fixes on the branch.",
-				"3. Leave the worktree clean: rebase finished, everything committed. Don't touch the main checkout.",
+				"3. Leave the worktree clean: merge finished, everything committed. Don't rebase or rewrite commits,",
+				"   and don't touch the main checkout.",
 				"",
-				"If the upstream changes make this change wrong or unnecessary, `git rebase --abort` and say why.",
+				"If the upstream changes make this change wrong or unnecessary, `git merge --abort` and say why.",
 				"",
 				"## Spec",
 				run.spec,
@@ -737,17 +820,14 @@ export default function (pi: ExtensionAPI) {
 				latest,
 			]);
 			if (run.halt) throw new Error("stopped during merge-back");
-			run.log.push({ title: `Merge-back by ${mg.id}`, text: mg.text });
+			run.log.push({ title: `Merge of ${wt.target} by ${mg.id}`, text: mg.text });
 			if (!mg.ok) throw new Error(mg.text);
-			if (await rebaseInProgress(wt)) throw new Error(`${mg.id} left the rebase unfinished`);
+			if (await mergeInProgress(wt)) throw new Error(`${mg.id} left the merge unfinished`);
 			await commitAll(wt, `${subject} (merge fixes)`);
-			if (!(await isAncestor(wt.path, head, "HEAD"))) throw new Error(`${mg.id} didn't rebase onto ${head.slice(0, 8)}`);
+			if (!(await isAncestor(wt.path, head, "HEAD"))) throw new Error(`${mg.id} didn't merge ${head.slice(0, 8)}`);
 			wt.base = head;
-			run.stage = "merge";
-			changed(run);
 		}
-		await git(wt.root, "merge", "-q", "--ff-only", wt.branch);
-		wt.merged = await git(wt.root, "rev-parse", "--short", "HEAD");
+		throw new Error(`${wt.target} kept moving (${MERGE_ATTEMPTS} merges)`);
 	}
 
 	function prune() {
@@ -1233,7 +1313,8 @@ export default function (pi: ExtensionAPI) {
 			"  the current HEAD, so editing agents can run in parallel without clashing. Uncommitted changes in the",
 			"  main checkout are not in that worktree; commit them first (with the user's OK) if an agent needs them.",
 			"  When the work passes review it is committed and merged back: the current branch is fast-forwarded to",
-			"  it (rebased first by a merge agent if the branch moved). The report says whether it merged or which",
+			"  it (after a merge agent merges the branch's new commits into the work, if it moved; one merge-back",
+			"  at a time per repository, across pi processes). The report says whether it merged or which",
 			"  branch and worktree hold it. Run the checks yourself afterwards if several merges landed.",
 			"- `agent_send` steers a running agent or continues a finished one with its context intact.",
 			...(personas.length

@@ -75,9 +75,11 @@ machine should have here.
     description, on a branch of the same name, from the main checkout's
     HEAD; `/worktrees/` is added to `.git/info/exclude`), so parallel agents build and test
     independently. Merge-back commits the work on the branch; if the main
-    checkout's branch moved, a `merger` agent rebases and re-checks; then that
-    branch is fast-forwarded and the worktree and branch are removed, one
-    merge at a time. Work that fails review or can't fast-forward (e.g. your
+    checkout's branch moved, a `merger` agent merges it into the worktree and
+    re-checks, looping until the worktree has the branch's tip; then that
+    branch is fast-forwarded and the worktree and branch are removed. The whole
+    merge-back holds `.git/pi-merge.lock`, so only one runs per repository even
+    across pi processes (a lock left by a dead pi on this host is taken over). Work that fails review or can't fast-forward (e.g. your
     uncommitted edits overlap) stays on its branch; the report says where
     (`git worktree list`, `git worktree prune` to clean up). A `subagents` system-prompt section tells the model when to
     delegate (it does so on its own when asked for agents, parallel work, or
@@ -117,7 +119,7 @@ machine should have here.
   bare list), `model` (`provider/id`), `thinking`, `then` (a personality that
   reviews each finished task; `VERDICT: FAIL` sends the findings back to fix),
   `rounds` (most reviews per task, default 2), `tester` (writes tests when
-  dispatched with `tests: true`), `merger` (rebases at merge-back),
+  dispatched with `tests: true`), `merger` (merges a moved main branch into the work at merge-back),
   `default: true` (used for agents that may edit files and name no
   personality); the body is appended to the
   subagent's system prompt. Read on every dispatch, so edits need no
@@ -129,7 +131,7 @@ machine should have here.
   - `tester.md`: writes tests for a finished change; edits only test files and
     reports implementation bugs instead of fixing them
   - `reviewer.md`: read-only correctness review, findings with file:line
-  - `merger.md`: rebases a finished change onto a moved main branch, resolves
+  - `merger.md`: merges a moved main branch into a finished change, resolves
     conflicts keeping both intents, re-runs the checks
 - `skills/`, `themes/`: empty for now
 
