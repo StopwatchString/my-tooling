@@ -38,14 +38,27 @@ prune-binaries() {
 # that run only (pi/extensions/home-models.ts reads $HOME_AI_KEY). Skipped when
 # HOME_AI_KEY is already set or `op` isn't installed (socrates itself needs no key).
 # Override the item with HOME_AI_KEY_REF in ~/.config/shell/local.sh.
+# Over ssh, op's desktop-app integration would wait on an unlock prompt shown
+# on this machine's screen (agent forwarding doesn't cover op), so it's turned
+# off there and op signs in on the terminal instead (master password; first
+# time on a machine it offers to add the account). The session token is
+# exported into the calling shell, so later runs there don't ask again.
 pi() {
   if [ -z "${HOME_AI_KEY:-}" ] && has_cmd op; then
-    local key
-    if key="$(op read "${HOME_AI_KEY_REF:-op://Personal/home-ai-server/credential}" 2>/dev/null)"; then
+    local key ref="${HOME_AI_KEY_REF:-op://Personal/home-ai-server/credential}"
+    if [ -n "${SSH_CONNECTION:-}" ]; then
+      local OP_BIOMETRIC_UNLOCK_ENABLED=false
+      export OP_BIOMETRIC_UNLOCK_ENABLED
+      if ! op whoami >/dev/null 2>&1; then
+        local session
+        session="$(op signin)" && eval "$session"
+      fi
+    fi
+    if key="$(op read "$ref" </dev/null 2>/dev/null)"; then
       HOME_AI_KEY="$key" command pi "$@"
       return
     fi
-    echo "pi: couldn't read the home-ai-server key from 1Password (op signin?); home models will fail" >&2
+    echo "pi: couldn't read the home-ai-server key from 1Password; home models will fail" >&2
   fi
   command pi "$@"
 }
