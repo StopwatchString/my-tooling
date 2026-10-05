@@ -66,7 +66,19 @@ machine should have here.
     to the background (Ctrl+C still stops it). `agent_send` steers a running agent or
     continues a finished one with its context; `agent_stop` aborts.
     `readonly: true` drops edit/write; `personality` picks a file from
-    `agents/`. A `subagents` system-prompt section tells the model when to
+    `agents/`. Code changes go through a pipeline where every stage is a fresh
+    agent (new context, briefed with the spec and earlier reports):
+    implementation → tests (only with `tests: true`) → review, with a fresh
+    fixer and a fresh re-review on `VERDICT: FAIL` → merge-back. In a git
+    repository each editing agent works in its own worktree
+    (`$TMPDIR/pi-agents/<session>/<id>/worktree`, branch `pi/<session>-<id>`,
+    from the main checkout's HEAD), so parallel agents build and test
+    independently. Merge-back commits the work on the branch; if the main
+    checkout's branch moved, a `merger` agent rebases and re-checks; then that
+    branch is fast-forwarded and the worktree and branch are removed, one
+    merge at a time. Work that fails review or can't fast-forward (e.g. your
+    uncommitted edits overlap) stays on its branch; the report says where
+    (`git worktree list`, `git worktree prune` to clean up). A `subagents` system-prompt section tells the model when to
     delegate (it does so on its own when asked for agents, parallel work, or
     broad searches) and lists the personalities. Children load the normal
     extensions, MCP and tool search, but not `agent/` itself (no nesting);
@@ -103,14 +115,21 @@ machine should have here.
   `description`, optional `tools` (`+name`/`-name` against the defaults, or a
   bare list), `model` (`provider/id`), `thinking`, `then` (a personality that
   reviews each finished task; `VERDICT: FAIL` sends the findings back to fix),
-  `rounds` (most reviews per task, default 2), `default: true` (used for agents
-  that may edit files and name no personality); the body is appended to the
+  `rounds` (most reviews per task, default 2), `tester` (writes tests when
+  dispatched with `tests: true`), `merger` (rebases at merge-back),
+  `default: true` (used for agents that may edit files and name no
+  personality); the body is appended to the
   subagent's system prompt. Read on every dispatch, so edits need no
   `/reload`. Trusted projects can add their own in `.pi/agents/`.
   - `implementer.md`: the default for code changes; implements to the spec,
-    then `reviewer` checks it and it fixes what the review finds (up to 2
-    reviews). The result is its report plus the final review.
+    then fresh agents test (`tester`), review (`reviewer`), fix (another
+    `implementer`, up to 2 reviews) and merge it (`merger`). The result is its
+    report plus every stage's report and the merge-back outcome.
+  - `tester.md`: writes tests for a finished change; edits only test files and
+    reports implementation bugs instead of fixing them
   - `reviewer.md`: read-only correctness review, findings with file:line
+  - `merger.md`: rebases a finished change onto a moved main branch, resolves
+    conflicts keeping both intents, re-runs the checks
 - `skills/`, `themes/`: empty for now
 
 Not tracked (machine-local or secret, stay in `~/.pi/agent/`): `auth.json`,

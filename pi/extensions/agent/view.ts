@@ -73,7 +73,7 @@ export function oneLine(run: Run, animate = false): string {
 export function lineBody(run: Run): string {
 	const who = run.personality ? `${run.id} ${run.personality}` : run.id;
 	const parts = [who, run.description, `${run.toolCalls} tools`, usage(run), elapsed(run)].filter(Boolean);
-	if (run.stage) parts.push(`${run.stage}${run.reviewer ? ` (${run.reviewer.id})` : ""}`);
+	if (run.stage) parts.push(`${run.stage}${run.helper ? ` (${run.helper.id})` : ""}`);
 	if (run.status === "running" && run.activity) parts.push(run.activity);
 	return parts.join(" · ");
 }
