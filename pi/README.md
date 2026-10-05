@@ -71,8 +71,9 @@ machine should have here.
     implementation → tests (only with `tests: true`) → review, with a fresh
     fixer and a fresh re-review on `VERDICT: FAIL` → merge-back. In a git
     repository each editing agent works in its own worktree
-    (`$TMPDIR/pi-agents/<session>/<id>/worktree`, branch `pi/<session>-<id>`,
-    from the main checkout's HEAD), so parallel agents build and test
+    (`<repo>/worktrees/pi-agent-<work>`, `<work>` from the agent's
+    description, on a branch of the same name, from the main checkout's
+    HEAD; `/worktrees/` is added to `.git/info/exclude`), so parallel agents build and test
     independently. Merge-back commits the work on the branch; if the main
     checkout's branch moved, a `merger` agent rebases and re-checks; then that
     branch is fast-forwarded and the worktree and branch are removed, one

@@ -37,22 +37,23 @@
  * personality, so delegated code changes always go through the pipeline.
  *
  * Worktrees: in a git repository, every agent that may edit files gets its own git worktree
- * on branch pi/<session>-<id>, branched from the main checkout's HEAD, so agents build and
- * test without stepping on each other; its stage agents work there too. Merge-back commits
- * the work on the branch. If the main checkout's branch has moved, a fresh `merger:` agent
- * rebases onto it, resolves conflicts and re-runs the checks. Then the main branch is
- * fast-forwarded and the worktree and branch removed. Merges into one checkout run one at
- * a time. Work that fails review or can't be fast-forwarded stays on its branch, and the
- * report says where.
+ * at <repo>/worktrees/pi-agent-<work> on a branch of the same name (<work> from its
+ * description; `/worktrees/` goes in .git/info/exclude), branched from the main checkout's
+ * HEAD, so agents build and test without stepping on each other; its stage agents work
+ * there too. Merge-back commits the work on the branch. If the main checkout's branch has
+ * moved, a fresh `merger:` agent rebases onto it, resolves conflicts and re-runs the checks.
+ * Then the main branch is fast-forwarded and the worktree and branch removed. Merges into
+ * one checkout run one at a time. Work that fails review or can't be fast-forwarded stays
+ * on its branch, and the report says where.
  *
  * Concurrency is per model provider: `subagents.maxConcurrency` in
  * ~/.pi/agent/settings.json, either a number or { "default": 3, "<provider>": n }.
  * $PI_AGENT_MAX_CONCURRENCY overrides the default; the fallback is 3.
  */
 import { execFile } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { Type } from "@earendil-works/pi-ai";
@@ -83,6 +84,8 @@ const TAIL_LINES = 30;
 const DEFAULT_ROUNDS = 2;
 /** Rebases per merge-back before giving up on a main branch that keeps moving. */
 const MERGE_ATTEMPTS = 3;
+/** Agents' worktrees go in this directory at the top of the repository. */
+const WORKTREES_DIR = "worktrees";
 
 const execFileP = promisify(execFile);
 
@@ -244,8 +247,31 @@ function brief(run: Run, persona: Personality | undefined): string {
 	return lines.join("\n");
 }
 
-/** A new worktree for `run`, branched from the HEAD of `cwd`'s checkout; undefined outside a git repository. */
-async function createWorktree(run: Run, cwd: string, session: string): Promise<Worktree | undefined> {
+/** "Add retry to fetch()" -> "add-retry-to-fetch". */
+function slug(text: string): string {
+	return (
+		text
+			.toLowerCase()
+			.replace(/[^a-z0-9]+/g, "-")
+			.slice(0, 40)
+			.replace(/^-+|-+$/g, "") || "work"
+	);
+}
+
+/** Keep `worktrees/` out of the main checkout's `git status`, without touching tracked files. */
+async function excludeWorktrees(root: string) {
+	const file = await git(root, "rev-parse", "--path-format=absolute", "--git-path", "info/exclude");
+	const text = existsSync(file) ? readFileSync(file, "utf8") : "";
+	if (text.split(/\r?\n/).some((l) => l.trim() === `/${WORKTREES_DIR}/`)) return;
+	mkdirSync(dirname(file), { recursive: true });
+	appendFileSync(file, `${text && !text.endsWith("\n") ? "\n" : ""}/${WORKTREES_DIR}/\n`);
+}
+
+/**
+ * A new worktree for `run` at <repo>/worktrees/pi-agent-<work> (branch of the same name),
+ * branched from the HEAD of `cwd`'s checkout; undefined outside a git repository.
+ */
+async function createWorktree(run: Run, cwd: string): Promise<Worktree | undefined> {
 	let root: string;
 	let prefix: string;
 	try {
@@ -257,9 +283,23 @@ async function createWorktree(run: Run, cwd: string, session: string): Promise<W
 	const target = await git(root, "symbolic-ref", "-q", "--short", "HEAD").catch(() => "");
 	if (!target) throw new Error("the main checkout is on a detached HEAD; check out a branch so work can merge back into it");
 	const base = await git(root, "rev-parse", "HEAD");
-	const branch = `pi/${session.slice(0, 8)}-${run.id}`;
-	const path = join(run.dir, "worktree");
-	await git(root, "worktree", "add", "-q", "-b", branch, path, base);
+	await excludeWorktrees(root);
+	const name = `pi-agent-${slug(run.description)}`;
+	let branch = "";
+	let path = "";
+	for (let n = 1; ; n++) {
+		branch = n === 1 ? name : `${name}-${n}`;
+		path = join(root, WORKTREES_DIR, branch);
+		const taken = existsSync(path) || (await git(root, "rev-parse", "--verify", "-q", `refs/heads/${branch}`).then(() => true, () => false));
+		if (taken) continue;
+		try {
+			await git(root, "worktree", "add", "-q", "-b", branch, path, base);
+			break;
+		} catch (e) {
+			// another agent took the name between the check and the add: try the next one
+			if (n >= 50 || !existsSync(path)) throw e;
+		}
+	}
 	const notes: string[] = [];
 	if (await git(root, "status", "--porcelain")) {
 		notes.push(`The main checkout had uncommitted changes; ${run.id} started from ${target} at ${base.slice(0, 8)} without them.`);
@@ -512,7 +552,7 @@ export default function (pi: ExtensionAPI) {
 			run.stage = "worktree";
 			changed(run);
 			try {
-				run.wt = await createWorktree(run, ctx.cwd, ctx.sessionManager.getSessionId());
+				run.wt = await createWorktree(run, ctx.cwd);
 			} catch (e) {
 				run.status = "failed";
 				run.error = `couldn't create a worktree: ${errorText(e)}`;
