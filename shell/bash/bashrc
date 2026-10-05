@@ -25,6 +25,9 @@ HISTSIZE=10000
 HISTFILESIZE=20000
 shopt -s histappend checkwinsize
 
+# Inside tmux, pick up the attaching client's ssh agent (shell/common/functions.sh).
+[ -n "${TMUX:-}" ] && PROMPT_COMMAND="ssh-refresh${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
+
 # Completion (Linux system package, or Homebrew's bash-completion@2 on macOS).
 if ! shopt -oq posix; then
   for _f in /usr/share/bash-completion/bash_completion /etc/bash_completion \

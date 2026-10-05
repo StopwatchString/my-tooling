@@ -9,6 +9,7 @@ path_prepend() {
   esac
 }
 
+path_prepend "$HOME/go/bin"
 path_prepend "$HOME/.local/bin"
 export PATH
 

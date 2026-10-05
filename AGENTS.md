@@ -20,8 +20,13 @@ shell/
   bash/bash_profile   -> ~/.bash_profile (sources ~/.bashrc)
   zsh/zshrc           -> ~/.zshrc
   zsh/zshenv          -> ~/.zshenv (cargo env, for every zsh incl. scripts)
+  zsh/p10k.zsh        Powerlevel10k config, sourced from the repo (not linked)
+  zsh/plugins/        git submodules: powerlevel10k, zsh-autosuggestions
 nvim/                 -> ~/.config/nvim (Neovim 0.12+ config; uses vim.pack)
 tmux/.tmux.conf       -> ~/.tmux.conf
+gnome-terminal/profile.dconf  GNOME Terminal profile (Solarized Dark, font);
+                      applied by scripts/gnome-terminal-profile.sh, not linked
+fonts/                UbuntuMono Nerd Font Mono TTFs (scripts/install-fonts.sh)
 vscode/               settings.json, keybindings.json -> VS Code's User dir
 ssh/config            -> ~/.ssh/config (hosts + agent selection; includes the
                       untracked ~/.ssh/config.local)
@@ -35,8 +40,10 @@ pi/                   pi coding agent config (formerly ~/dev/pi-harness); see
                       keybindings.json mcp.json APPEND_SYSTEM.md are linked into
                       ~/.pi/agent/; settings.json is merged, not linked.
                       Machine-specific bits (models.json) stay untracked.
-scripts/              Standalone utilities, not linked
-                      (install-nvim-ubuntu.sh, nvidia-nix-link.sh)
+scripts/              Standalone utilities, not linked (install-nvim-ubuntu.sh,
+                      nvidia-nix-link.sh, install-fonts.sh,
+                      gnome-terminal-profile.sh load|export, cheatsheet.sh
+                      a.k.a. the `cheat` alias)
 nixos/templates/      Reference NixOS configuration.nix, not linked
 ```
 
@@ -77,6 +84,16 @@ nixos/templates/      Reference NixOS configuration.nix, not linked
   bash and zsh** (and `lib/os.sh` in plain `sh`). Only bash/zsh-specific
   settings (history, prompt, completion, shopt/setopt) go in the per-shell rc.
 - Guard tool-specific aliases with `has_cmd`.
+- zsh plugins are submodules under `shell/zsh/plugins/`. zshrc runs
+  `git submodule update --init` itself if they're missing (fresh clone without
+  `--recursive`) and falls back to a plain prompt if that fails. Plugins are
+  sourced directly, no plugin manager. Anything that prints or reads input
+  must go above the p10k instant-prompt block at the top of zshrc.
+- `p10k configure` writes back to `shell/zsh/p10k.zsh` (via
+  `POWERLEVEL9K_CONFIG_FILE`); review the diff, it replaces the trimmed file
+  with the full generated one.
+- In tmux, `ssh-refresh` runs before every prompt (bash `PROMPT_COMMAND`, zsh
+  `precmd`) so panes use the ssh agent of whichever client attached last.
 - Exported for use anywhere: `$DOTFILES`, `$DOTFILES_OS`, `$DEV` (`~/dev`).
 
 ## SSH notes
@@ -129,6 +146,13 @@ Done (branch `dotfiles-overhaul`):
   drops its `packages` entry from pi's settings.json.
 - Integrated this machine's old ~/.zshrc / ~/.zshenv: vi mode, `$` prompt,
   `~/.histfile`, NOTIFY/NO_BEEP, cargo env.
+- Ported settings from another dotfiles repo: zsh history/options, completion
+  menu, vi-mode key bindings, block cursor, Powerlevel10k + autosuggestions
+  (submodules), `ssh-refresh` in tmux, `scratch`, `~/go/bin`, dircolors,
+  Nerd Fonts + GNOME Terminal profile scripts, cheat sheet. Not ported on
+  purpose: that repo's "append a source line to the distro ~/.bashrc"
+  approach (this repo links its own bashrc) and its `MSPECK_TOOLING_PATH`
+  (same role as `$DOTFILES`).
 
 Caveats / open items:
 - `setup.sh` has not been run against the real `$HOME` yet. The first run

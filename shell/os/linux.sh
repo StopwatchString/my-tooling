@@ -1,5 +1,7 @@
 # Linux-only shell setup (bash and zsh).
 
+# Ubuntu's stock ~/.bashrc color setup, so zsh gets it too.
+has_cmd dircolors && eval "$(dircolors -b)"
 alias ls='ls --color=auto'
 alias grep='grep --color=auto'
 

@@ -3,20 +3,92 @@
 # Repo root: this file's symlink-resolved path, two directories up.
 DOTFILES="${${(%):-%x}:A:h:h:h}"
 
+# Plugins are git submodules. On a fresh clone (no --recursive) fetch them
+# once; anything printed here comes before p10k's instant prompt, so it's fine.
+_zplugins="$DOTFILES/shell/zsh/plugins"
+if [[ ! -f $_zplugins/powerlevel10k/powerlevel10k.zsh-theme ||
+      ! -f $_zplugins/zsh-autosuggestions/zsh-autosuggestions.zsh ]] && (( $+commands[git] )); then
+  print -u2 "zshrc: fetching zsh plugin submodules..."
+  git -C "$DOTFILES" submodule update --init --depth 1 -- \
+    shell/zsh/plugins/powerlevel10k shell/zsh/plugins/zsh-autosuggestions >&2
+fi
+
+# Powerlevel10k instant prompt. Keep near the top; anything needing console
+# input (password prompts, [y/n] confirmations) must go above this block.
+if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
+  source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
+fi
+
+typeset -U path   # dedupe PATH
+
 . "$DOTFILES/shell/init.sh"
 
 # --- zsh-specific ---
 HISTFILE="$HOME/.histfile"   # zsh-newuser-install default; keeps existing history
 HISTSIZE=10000
 SAVEHIST=20000
-setopt APPEND_HISTORY SHARE_HISTORY HIST_IGNORE_DUPS HIST_IGNORE_SPACE
-setopt AUTO_CD INTERACTIVE_COMMENTS NOTIFY
-unsetopt BEEP
+setopt EXTENDED_HISTORY HIST_IGNORE_ALL_DUPS HIST_IGNORE_SPACE HIST_REDUCE_BLANKS SHARE_HISTORY
+setopt AUTO_CD EXTENDED_GLOB NOMATCH NOTIFY INTERACTIVE_COMMENTS NO_BEEP
 
-bindkey -v   # vi mode
+# EXTENDED_GLOB makes `#` a glob operator, which breaks flake refs like .#shell.
+alias nix='noglob nix'
 
+# Completion: menu selection, case-insensitive matching.
+zmodload zsh/complist
 autoload -Uz compinit && compinit
-zstyle ':completion:*' matcher-list 'm:{a-z}={A-Z}'
+zstyle ':completion:*' menu select
+zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}'
 
+# Vi mode, with a 10ms Esc timeout.
+bindkey -v
+KEYTIMEOUT=1
+
+# Up/Down search history by the typed prefix; Ctrl-Left/Right move by word;
+# Home/End/Delete do the usual. Both the terminfo keys and the common raw
+# sequences are bound, since zle doesn't switch the terminal to keypad mode.
+autoload -Uz up-line-or-beginning-search down-line-or-beginning-search
+zle -N up-line-or-beginning-search
+zle -N down-line-or-beginning-search
+_bindkeys() {
+  local widget=$1 seq; shift
+  for seq in "$@"; do
+    [[ -n $seq ]] && bindkey -M viins "$seq" $widget && bindkey -M vicmd "$seq" $widget
+  done
+}
+_bindkeys up-line-or-beginning-search   "${terminfo[kcuu1]}" '^[[A' '^[OA'
+_bindkeys down-line-or-beginning-search "${terminfo[kcud1]}" '^[[B' '^[OB'
+_bindkeys backward-word                 '^[[1;5D' '^[[5D'
+_bindkeys forward-word                  '^[[1;5C' '^[[5C'
+_bindkeys beginning-of-line             "${terminfo[khome]}" '^[[H' '^[OH' '^[[1~' '^[[7~'
+_bindkeys end-of-line                   "${terminfo[kend]}"  '^[[F' '^[OF' '^[[4~' '^[[8~'
+_bindkeys delete-char                   "${terminfo[kdch1]}" '^[[3~'
+unfunction _bindkeys
+
+# Steady (non-blinking) block cursor, reset before every prompt.
+autoload -Uz add-zsh-hook
+_cursor_block() { print -n '\e[2 q' }
+add-zsh-hook precmd _cursor_block
+
+# Inside tmux, pick up the attaching client's ssh agent (shell/common/functions.sh).
+[[ -n ${TMUX:-} ]] && add-zsh-hook precmd ssh-refresh
+
+# Fallback prompt; replaced by Powerlevel10k below when it's available.
 PROMPT='%F{green}%n@%m%f:%F{blue}%~%f%(!.#.$) '
 export PATH="$HOME/.local/bin:$PATH"
+
+# zsh-autosuggestions: suggest from history, then completion; Ctrl-Space accepts.
+if [[ -f $_zplugins/zsh-autosuggestions/zsh-autosuggestions.zsh ]]; then
+  ZSH_AUTOSUGGEST_STRATEGY=(history completion)
+  ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=244'
+  . "$_zplugins/zsh-autosuggestions/zsh-autosuggestions.zsh"
+  bindkey '^ ' autosuggest-accept
+fi
+
+# Powerlevel10k, with its config kept in the repo. `p10k configure` writes
+# straight back to shell/zsh/p10k.zsh.
+if [[ -f $_zplugins/powerlevel10k/powerlevel10k.zsh-theme ]]; then
+  . "$_zplugins/powerlevel10k/powerlevel10k.zsh-theme"
+  POWERLEVEL9K_CONFIG_FILE="$DOTFILES/shell/zsh/p10k.zsh"
+  . "$POWERLEVEL9K_CONFIG_FILE"
+fi
+unset _zplugins

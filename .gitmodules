@@ -1,0 +1,8 @@
+[submodule "shell/zsh/plugins/powerlevel10k"]
+	path = shell/zsh/plugins/powerlevel10k
+	url = https://github.com/romkatv/powerlevel10k.git
+	shallow = true
+[submodule "shell/zsh/plugins/zsh-autosuggestions"]
+	path = shell/zsh/plugins/zsh-autosuggestions
+	url = https://github.com/zsh-users/zsh-autosuggestions.git
+	shallow = true

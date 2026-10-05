@@ -49,3 +49,24 @@ pi() {
   fi
   command pi "$@"
 }
+
+# Inside tmux, take SSH_AUTH_SOCK / SSH_CONNECTION from the session, which tmux
+# updates from whichever client attached last (local or over ssh). Run before
+# every prompt in tmux by bashrc/zshrc, so agent forwarding keeps working
+# after reattaching from another machine.
+ssh-refresh() {
+  [ -n "${TMUX:-}" ] || return 0
+  eval "$(tmux show-environment -s SSH_AUTH_SOCK 2>/dev/null)"
+  eval "$(tmux show-environment -s SSH_CONNECTION 2>/dev/null)"
+}
+
+# Attach to the tmux session "scratch", creating it if needed. Inside tmux,
+# switch to it instead of nesting.
+scratch() {
+  if [ -n "${TMUX:-}" ]; then
+    tmux has-session -t =scratch 2>/dev/null || tmux new-session -d -s scratch
+    tmux switch-client -t =scratch
+  else
+    tmux new-session -A -s scratch
+  fi
+}
