@@ -58,6 +58,7 @@ servers every machine should have here.
 | Server | What |
 |---|---|
 | `home-search` | Web search on the home server (socrates, `~/serve/search`: SearXNG + mcp-searxng) at `http://192.168.0.41:8090/mcp`. `searxng_web_search` and `web_url_read` are `direct` tools; the other two are hidden. Bearer key `$HOME_AI_KEY`, the same one as `home-models.ts`. Unlike the router, it needs the key on socrates too: `~/.config/shell/local.sh` there exports it from `~/serve/ai/.env`. Check with `pi mcp list`. |
+| `sourcebot` | Code search on the home server (socrates, `~/serve/sourcebot`) at `http://192.168.0.41:3000/api/mcp`: grep/search over the indexed repos, file reads, symbol navigation, `ask_codebase` (answered by the router's model). Same `$HOME_AI_KEY`, sent as `Bearer sbk_${HOME_AI_KEY}` (Sourcebot API keys need the `sbk_` prefix); `~/serve/sourcebot/register-home-ai-key.sh` registers it there. |
 
 ## Contents
 

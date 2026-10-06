@@ -9,6 +9,11 @@
         "searxng_search_suggestions": "hidden",
         "searxng_instance_info": "hidden"
       }
+    },
+    "sourcebot": {
+      "url": "http://192.168.0.41:3000/api/mcp",
+      "headers": { "Authorization": "Bearer sbk_${HOME_AI_KEY}" },
+      "description": "Sourcebot code search on the home server: grep and search the indexed repos, read files, navigate symbols, and ask natural-language questions about the code (ask_codebase, answered by the local LLM)"
     }
   }
 }
