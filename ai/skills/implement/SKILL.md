@@ -213,6 +213,12 @@ Once every step has landed or is paused:
    with their worktree and what's blocking them; the final checks; follow-ups.
 3. Reply in chat: the commits that landed, the check results, anything
    paused or needing the user, and the path to `report.md`. Short.
+4. Cleanup: if no step is paused, delete `implement-<task>/` — the plan,
+   step reports and `report.md` have served their purpose, and the commits
+   on the base are the record. If any step is paused, keep the folder so the
+   run can be resumed, and say so; delete it once the run finishes later.
+   Never delete the plan input (e.g. a `research-<task>/` directory) — only
+   this run's own `implement-<task>/`.
 
 Never push.
 

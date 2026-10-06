@@ -169,6 +169,9 @@ than read as an inference.
 
 ## Finish
 
-Reply in chat with: the path to `report.md`, the TL;DR, the first few
-action-plan steps (task mode), the biggest open question, and the directory
-with the item reports. Keep it short; the detail lives in the report.
+1. Reply in chat with: the TL;DR, the first few action-plan steps (task
+   mode), and the biggest open question. Keep it short.
+2. Delete the output directory: the merged report and item reports have served
+   their purpose, and the chat reply is the record — make it complete enough
+   to stand on its own (offer to show the full report in chat first). Never
+   delete a directory the user named with `--out`; that was their choice.
