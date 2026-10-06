@@ -13,7 +13,14 @@
     "sourcebot": {
       "url": "http://192.168.0.41:3000/api/mcp",
       "headers": { "Authorization": "Bearer sbk_${HOME_AI_KEY}" },
-      "description": "Sourcebot code search on the home server: grep and search the indexed repos, read files, navigate symbols, and ask natural-language questions about the code (ask_codebase, answered by the local LLM)"
+      "description": "Sourcebot code search on the home server: grep and search the indexed repos, read files, navigate symbols, and ask natural-language questions about the code (ask_codebase, answered by the local LLM)",
+      "exposure": "direct",
+      "toolExposure": {
+        "create_skill": "hidden",
+        "update_skill": "hidden",
+        "list_skills": "hidden",
+        "list_language_models": "hidden"
+      }
     }
   }
 }
