@@ -1,29 +1,6 @@
-# ~/.zshrc — symlinked from the dotfiles repo (shell/zsh/zshrc).
+# zsh interactive settings: history, options, completion, keys, plugins and
+# prompt. The last stage of the generated ~/.config/dotfiles/build/zshrc.
 
-# Repo root: this file's symlink-resolved path, two directories up.
-DOTFILES="${${(%):-%x}:A:h:h:h}"
-
-# Plugins are git submodules. On a fresh clone (no --recursive) fetch them
-# once; anything printed here comes before p10k's instant prompt, so it's fine.
-_zplugins="$DOTFILES/shell/zsh/plugins"
-if [[ ! -f $_zplugins/powerlevel10k/powerlevel10k.zsh-theme ||
-      ! -f $_zplugins/zsh-autosuggestions/zsh-autosuggestions.zsh ]] && (( $+commands[git] )); then
-  print -u2 "zshrc: fetching zsh plugin submodules..."
-  git -C "$DOTFILES" submodule update --init --depth 1 -- \
-    shell/zsh/plugins/powerlevel10k shell/zsh/plugins/zsh-autosuggestions >&2
-fi
-
-# Powerlevel10k instant prompt. Keep near the top; anything needing console
-# input (password prompts, [y/n] confirmations) must go above this block.
-if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
-  source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
-fi
-
-typeset -U path   # dedupe PATH
-
-. "$DOTFILES/shell/init.sh"
-
-# --- zsh-specific ---
 HISTFILE="$HOME/.histfile"   # zsh-newuser-install default; keeps existing history
 HISTSIZE=10000
 SAVEHIST=20000
@@ -76,6 +53,8 @@ add-zsh-hook precmd _cursor_block
 PROMPT='%B%F{green}%n@%m%f%b:%B%F{blue}%~%f%b%(!.#.$) '
 export PATH="$HOME/.local/bin:$PATH"
 
+_zplugins="$DOTFILES_LAYER/shell/zsh/plugins"
+
 # zsh-autosuggestions: suggest from history, then completion; Ctrl-Space accepts.
 if [[ -f $_zplugins/zsh-autosuggestions/zsh-autosuggestions.zsh ]]; then
   ZSH_AUTOSUGGEST_STRATEGY=(history completion)
@@ -88,7 +67,7 @@ fi
 # straight back to shell/zsh/p10k.zsh.
 if [[ -f $_zplugins/powerlevel10k/powerlevel10k.zsh-theme ]]; then
   . "$_zplugins/powerlevel10k/powerlevel10k.zsh-theme"
-  POWERLEVEL9K_CONFIG_FILE="$DOTFILES/shell/zsh/p10k.zsh"
+  POWERLEVEL9K_CONFIG_FILE="$DOTFILES_LAYER/shell/zsh/p10k.zsh"
   . "$POWERLEVEL9K_CONFIG_FILE"
 fi
 unset _zplugins

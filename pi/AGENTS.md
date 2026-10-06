@@ -21,7 +21,7 @@ settings.json     intended settings values, merged into the live settings.json
 dev-setup.sh      links .pi-sdk and installs typescript (type-checking only)
 ```
 
-`../setup.sh` makes the links and merges `settings.json`; see `README.md`.
+`../setup.sh` makes the links and merges the JSON files; see `README.md`.
 Don't register packages or put files in `~/.pi/agent/` directly; everything
 goes here.
 

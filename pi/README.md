@@ -1,7 +1,9 @@
 # pi
 
 Configuration for the [pi coding agent](https://github.com/earendil-works/pi).
-`./setup.sh` at the repo root wires it into `~/.pi/agent/` (Linux and macOS).
+`./setup.sh` at the repo root wires it into `~/.pi/agent/` (Linux and macOS),
+together with the `pi/` directory of any downstream layer (see
+`../docs/integration-guide.md`).
 Only config that applies on every machine lives here. The one shared service
 it knows about is the home model server (`home-models.ts`); secrets and
 anything for a single machine stay untracked in `~/.pi/agent/` or
@@ -13,20 +15,24 @@ Formerly the separate `~/dev/pi-harness` repo, which is retired.
 
 | Repo path | In `~/.pi/agent/` | How |
 |---|---|---|
-| `extensions/`, `skills/`, `prompts/`, `themes/` | same names | directory symlinks; pi auto-loads them |
-| `agents/` | `agents` | directory symlink; subagent personalities (read by `extensions/agent/`) |
-| `keybindings.json` | `keybindings.json` | symlink (empty for now; see pi's `docs/keybindings.md`) |
-| `mcp.json` | `mcp.json` | symlink; pi's built-in MCP servers (see below) |
-| `APPEND_SYSTEM.md` | `APPEND_SYSTEM.md` | symlink; pi-only instructions appended to the system prompt |
-| `../agents/AGENTS.md` | `AGENTS.md` | symlink; shared with Claude Code |
-| `settings.json` | `settings.json` | **merged**, not linked (see below) |
+| `extensions/`, `skills/`, `prompts/`, `themes/` | same names | real dirs; each item symlinked; pi auto-loads them |
+| `agents/` | `agents` | same; subagent personalities (read by `extensions/agent/`) |
+| `keybindings.json` | `keybindings.json` | **merged** (empty for now; see pi's `docs/keybindings.md`) |
+| `mcp.json` | `mcp.json` | **merged**; pi's built-in MCP servers (see below) |
+| `APPEND_SYSTEM.md` | `APPEND_SYSTEM.md` | copied into a managed block; pi-only instructions appended to the system prompt |
+| `../agents/AGENTS.md` | `AGENTS.md` | copied into a managed block; shared with Claude Code |
+| `settings.json` | `settings.json` | **merged** (see below) |
+
+Items with the same name in a later layer replace this repo's (setup warns).
+Merged files take every layer's keys, later layers winning. Text in a file
+outside the managed block is the host's own and comes last.
 
 After changing anything, run `/reload` in pi (or restart it).
 
 ### Settings
 
 pi rewrites `~/.pi/agent/settings.json` itself (package list, changelog
-version, Ctrl+T toggling `hideThinkingBlock`, ...), so it is not symlinked.
+version, Ctrl+T toggling `hideThinkingBlock`, ...), so it is merged, not linked.
 `settings.json` here holds the intended values; `./setup.sh` merges them into
 the live file (repo wins for those keys, everything else is left alone) and
 drops the old `pi-harness` package entry. `./setup.sh -s` reports `DIFF` when
@@ -44,9 +50,10 @@ To try a value without committing, edit the live file directly.
 ### MCP servers
 
 `mcp.json` uses pi's built-in MCP support (`docs/mcp.md`). Changes made in
-`/mcp` (exposure, enable/disable) and `pi mcp add`/`remove` write through the
-symlink into this repo, so they show up in `git diff`; keep only servers every
-machine should have here.
+`/mcp` (exposure, enable/disable) and `pi mcp add`/`remove` write to the live
+`~/.pi/agent/mcp.json`. Servers added there stay; changes to a server defined
+here are reset by the next `./setup.sh`, so copy those back. Keep only
+servers every machine should have here.
 
 | Server | What |
 |---|---|

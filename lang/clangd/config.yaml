@@ -1,4 +1,5 @@
-# User-level clangd config. Symlinked by setup.sh to:
+# User-level clangd config. setup.sh joins it with downstream layers' copies
+# (one YAML document each, applied in order) into:
 #   Linux: ~/.config/clangd/config.yaml
 #   macOS: ~/Library/Preferences/clangd/config.yaml
 # Project .clangd files override this.

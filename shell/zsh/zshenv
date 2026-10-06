@@ -1,5 +1,0 @@
-# ~/.zshenv — symlinked from the dotfiles repo (shell/zsh/zshenv).
-# Read by every zsh, including scripts, so keep it to PATH-level setup.
-# Interactive setup goes in zshrc; shell/common/env.sh repeats this for bash.
-
-[ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"

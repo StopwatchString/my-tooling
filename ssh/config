@@ -1,5 +1,6 @@
-# ~/.ssh/config — shared across machines (linked by setup.sh).
-# Per-machine additions go in the untracked ~/.ssh/config.local.
+# ssh config shared across machines. setup.sh includes it (after any
+# downstream layers' ssh/config) from a block at the bottom of ~/.ssh/config;
+# per-machine lines go above that block. ~/.ssh/config.local still works.
 # ssh uses the first value it finds for each option, so order matters:
 # host-specific blocks first, the agent selection and defaults last.
 

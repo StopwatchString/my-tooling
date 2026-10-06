@@ -1,5 +1,6 @@
-# Ghostty config -> ~/.config/ghostty/config (Ghostty reads this path on macOS
-# too). Font matches scripts/install-fonts.sh, which installs it.
+# Ghostty config, copied by setup.sh into a block at the top of
+# ~/.config/ghostty/config (Ghostty reads this path on macOS too). Font matches
+# scripts/install-fonts.sh, which installs it.
 font-family = "UbuntuMono Nerd Font Mono"
 font-size = 13
 

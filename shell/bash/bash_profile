@@ -1,6 +1,0 @@
-# ~/.bash_profile — symlinked from the dotfiles repo (shell/bash/bash_profile).
-# Login shells (macOS Terminal, ssh) read this instead of ~/.bashrc.
-# Deliberately doesn't source ~/.profile: Ubuntu's sources ~/.bashrc too, and
-# everything it would set up already lives in shell/.
-
-[ -f "$HOME/.bashrc" ] && . "$HOME/.bashrc"

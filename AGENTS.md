@@ -1,51 +1,61 @@
 # my-tooling — dotfiles
 
 Personal dotfiles for **Linux and macOS** (Ubuntu is the main Linux; NixOS also
-appears). Windows support was dropped on purpose; don't add it back. Configs
-live here and `setup.sh` symlinks them into `$HOME`.
+appears). Windows support was dropped on purpose; don't add it back.
+
+This repo is the **base layer** of a layered build. `setup.sh` assembles each
+config from a stack of layers: this repo, then any downstream repos (each
+runs its own `setup.sh`, which execs this one with `--layer <dir>`), then the
+untracked host layer `~/.config/dotfiles/host/`. Later layers win, and the
+host's own files win over everything. Run on its own, `setup.sh` treats
+this repo as the last layer and removes what an earlier run built from
+layers that aren't in the stack any more. How downstream repos plug in:
+`docs/integration-guide.md`. Keep it in sync with `layer.sh`.
 
 ## Layout
 
 ```
-setup.sh              Linux setup (primary); hands off to setup-macos.sh on macOS
-setup-macos.sh        macOS setup with its own manifest
-lib/link.sh           Symlink engine shared by both setup scripts
+setup.sh              Entry point (Linux and macOS): sources lib/build.sh
+layer.sh              This repo's targets: what goes where, and the path
+                      conventions downstream layers fill in
+lib/build.sh          Layered build engine (targets, status, prune, uninstall)
 lib/os.sh             POSIX OS helpers: dotfiles_os, is_linux, is_macos, has_cmd
-shell/
-  init.sh             Shared entry point, sourced by bashrc and zshrc
-  common/             Sourced by both shells: env.sh, aliases.sh, functions.sh
+lib/nvim-layers.lua   Puts every layer's nvim/ on the runtimepath, runs its init.lua
+docs/integration-guide.md  How to build a downstream layer (written for agents)
+shell/                Stages, sourced per layer by the generated loaders
+  common/             Both shells: env.sh, aliases.sh, functions.sh
   os/linux.sh         OS-specific bits (apt/fwupd aliases, ls colors)
   os/macos.sh         (Homebrew shellenv, brew update alias)
-  bash/bashrc         -> ~/.bashrc
-  bash/bash_profile   -> ~/.bash_profile (sources ~/.bashrc)
-  zsh/zshrc           -> ~/.zshrc
-  zsh/zshenv          -> ~/.zshenv (cargo env, for every zsh incl. scripts)
-  zsh/p10k.zsh        Powerlevel10k config, sourced from the repo (not linked)
+  bash/rc.bash        bash history, prompt, completion (last bash stage)
+  zsh/early.zsh       submodule self-heal, p10k instant prompt (first zsh stage)
+  zsh/rc.zsh          zsh options, keys, plugins, prompt (last zsh stage)
+  zsh/env.zsh         cargo env, for every zsh incl. scripts (~/.zshenv)
+  zsh/p10k.zsh        Powerlevel10k config, sourced from the repo
   zsh/plugins/        git submodules: powerlevel10k, zsh-autosuggestions
-nvim/                 -> ~/.config/nvim (Neovim 0.12+ config; uses vim.pack)
-tmux/.tmux.conf       -> ~/.tmux.conf
-ghostty/config        -> ~/.config/ghostty/config (both OSes; font, theme)
+nvim/                 Neovim 0.12+ config (uses vim.pack), loaded from a block
+                      in ~/.config/nvim/init.lua
+tmux/tmux.conf        source-file'd from a block in ~/.tmux.conf
+ghostty/config        copied into a block in ~/.config/ghostty/config
 gnome-terminal/profile.dconf  GNOME Terminal profile (Solarized Dark, font);
                       loaded by setup.sh via scripts/gnome-terminal-profile.sh
 fonts/                UbuntuMono Nerd Font Mono TTFs, installed by setup.sh via
                       scripts/install-fonts.sh (also sets GNOME Terminal /
                       Ptyxis to the font; Ghostty sets it in ghostty/config)
-vscode/               settings.json, keybindings.json -> VS Code's User dir
-ssh/config            -> ~/.ssh/config (hosts + agent selection; includes the
-                      untracked ~/.ssh/config.local)
-lang/clang/.clang-format  -> ~/.clang-format
-lang/clangd/config.yaml   -> clangd user config (path differs per OS)
-agents/AGENTS.md      Global agent instructions -> ~/.claude/CLAUDE.md
-                      and ~/.pi/agent/AGENTS.md (one file, two agents)
-claude/settings.json  -> ~/.claude/settings.json
-ai/skills/            Agent skills shared by both harnesses: the dir ->
-                      ~/.agents/skills (pi), each skill ->
-                      ~/.claude/skills/<name> (Claude Code)
+vscode/               settings.json, keybindings.json: merged into VS Code's
+                      User dir (JSONC comments allowed)
+ssh/config            Include'd from a block at the bottom of ~/.ssh/config
+lang/clang/.clang-format  -> ~/.clang-format (highest layer wins)
+lang/clangd/config.yaml   joined into the clangd user config (path per OS)
+agents/AGENTS.md      Global agent instructions, copied into blocks in
+                      ~/.claude/CLAUDE.md and ~/.pi/agent/AGENTS.md
+claude/settings.json  merged into ~/.claude/settings.json
+ai/skills/            Agent skills, each linked into ~/.agents/skills (pi)
+                      and ~/.claude/skills (Claude Code)
 pi/                   pi coding agent config (formerly ~/dev/pi-harness); see
                       pi/README.md. extensions/ agents/ skills/ prompts/ themes/
-                      keybindings.json mcp.json APPEND_SYSTEM.md are linked into
-                      ~/.pi/agent/; settings.json is merged, not linked.
-                      Machine-specific bits (models.json) stay untracked.
+                      items are linked into ~/.pi/agent/<dir>/; settings.json,
+                      keybindings.json, mcp.json are merged; APPEND_SYSTEM.md
+                      goes in a block. Machine-specific bits stay untracked.
 scripts/              Standalone utilities, not linked (install-nvim.sh,
                       nvidia-nix-link.sh, install-fonts.sh,
                       gnome-terminal-profile.sh load|export, cheatsheet.sh
@@ -53,60 +63,76 @@ scripts/              Standalone utilities, not linked (install-nvim.sh,
 nixos/templates/      Reference NixOS configuration.nix, not linked
 ```
 
-## Setup scripts
+## Setup
 
-- Always run `./setup.sh`. Linux is the primary target and is handled there
-  directly. On macOS it `exec`s `setup-macos.sh` with the same arguments.
-  Most work happens on the Linux side; macOS is kept as a separate, simpler
-  route instead of OS conditionals inside one manifest.
-- Flags (both scripts): none = link everything, `-n` dry run, `-s` status,
-  `-u` remove the links that point into this repo.
-- Idempotent. A real file at a destination is moved to
-  `<dest>.backup.<timestamp>`, and a symlink pointing somewhere else is replaced.
-- Each script just sets `$DOTFILES`, defines `manifest()` and calls
-  `link_main "$@"`. The behavior lives in `lib/link.sh`.
-- Setup does everything, not just links. `step <name> <check fn> <apply fn>`
-  covers the rest: zsh plugin submodules, fonts + terminal font, Neovim
-  nightly, GNOME Terminal profile (macOS: submodules, fonts, Neovim
-  nightly). The apply function only runs when the check fails; `-s` shows `ok`/`todo`, `-n` shows `run`, `-u` leaves
-  steps alone. Scripts that back a step take a `--check`/`check` mode that
-  changes nothing and exits 0 when already done.
-- `merge_json <repo path> <dest> [jq filter]` is the alternative to `entry`
-  for JSON an app rewrites itself (pi's settings.json): the repo file's keys
-  are merged over the live file, the filter runs after, `-s` reports `DIFF` on
-  drift. Needs `jq`.
-- **To add a config:** put the file in the repo, then add one
-  `entry <repo path> <destination>` line to `manifest()` in `setup.sh`. Add
-  it to `setup-macos.sh` too if it applies there; macOS often puts things
-  under `~/Library/...` instead of `~/.config/...`.
+- Always run `./setup.sh` (both OSes; OS differences are `is_macos`
+  conditionals in `layer.sh`). Flags: none = build everything, `-n` dry run,
+  `-s` status, `-u` uninstall, `--layer DIR` (repeatable), `--skip PATTERN`.
+- `lib/build.sh` sources each layer's `layer.sh` in stack order. Targets run
+  as they're declared and each one gathers its path from **every** layer:
+  - `link <path> <dest>`: symlink to the highest layer's file.
+  - `link_each <dir> <dest dir>`: link every item of `<dir>` from every
+    layer; same name in two layers → later wins, with a `WARN`.
+  - `block <dest> top|bottom hash|lua|html <render...>`: a marked block in a
+    file the host owns; the host's lines outside it win.
+  - `generate <dest> <render...>`: a whole generated file (no includes
+    possible); host overrides go in the host layer.
+  - `json <path> <dest> [filter]`: deep-merge every layer's JSON(C) over the
+    live file, for files the app also writes. Removes keys a layer stops
+    setting. Needs `jq`.
+  - `step <name> <check fn> <apply fn>`: setup that isn't a file (zsh plugin
+    submodules, fonts + terminal font, Neovim nightly, GNOME Terminal
+    profile). The apply only runs when the check fails. Scripts that back a
+    step take a `--check`/`check` mode that changes nothing and exits 0 when
+    already done.
+  - `shadow_check <dir>`: warn when two layers have the same file (nvim/lua).
+  - Renderers for block/generate: `render_concat`, `render_each`,
+    `render_lines`, plus `render_shell`/`render_nvim`/... in `layer.sh`.
+- What was built is recorded in `~/.config/dotfiles/build/managed`
+  (generated loaders and JSON state live there too). The next run removes
+  whatever it no longer declares; `-s` shows those as `stale`.
+- Idempotent. Files in the way are moved to `<dest>.backup.<timestamp>`; old
+  symlinks into a layer (the pre-layering setup) are replaced, including
+  whole-directory ones like `~/.config/nvim`.
+- **To add a config:** put the file under a conventional path, then declare a
+  target in `layer.sh` with the matching kind (prefer `block` when the format
+  has includes or "later wins", `link_each` for directories of named items,
+  `json` for app-written JSON). Then document the path in the integration
+  guide's conventions table.
 - Every script meant to be run by hand (`setup.sh`, `scripts/*`,
   `pi/dev-setup.sh`) takes `-h`/`--help` and exits 2 on unknown arguments.
-- `setup-macos.sh` and `lib/link.sh` must run under **bash 3.2** (macOS
+- `setup.sh`, `layer.sh` and `lib/build.sh` must run under **bash 3.2** (macOS
   `/bin/bash`): no associative arrays, no `mapfile`, no `readlink -f`, no
-  `${var,,}`.
+  `${var,,}`. `layer.sh` runs under `set -euo pipefail`.
 
 ## Shell conventions
 
-- Load order: `bashrc`/`zshrc` resolve their own symlink to find `$DOTFILES`,
-  then source `shell/init.sh`. That sources `lib/os.sh`, then
-  `shell/os/$DOTFILES_OS.sh`, `common/env.sh`, `common/aliases.sh`,
-  `common/functions.sh`, and finally the untracked
-  `~/.config/shell/local.sh` for per-machine overrides and secrets.
-- Everything under `shell/common`, `shell/os` and `lib/` must parse in **both
-  bash and zsh** (and `lib/os.sh` in plain `sh`). Only bash/zsh-specific
-  settings (history, prompt, completion, shopt/setopt) go in the per-shell rc.
+- The host's `~/.bashrc`, `~/.zshrc`, `~/.zshenv` and `~/.bash_profile` are
+  real files with a managed block at the top; the host's own lines below it
+  win. The block sources a loader generated into
+  `~/.config/dotfiles/build/` (`bashrc`, `zshrc`, `zshenv`).
+- The loader sets `$DOTFILES` (this repo), `$DOTFILES_LAYERS`, `$DOTFILES_OS`,
+  sources `lib/os.sh`, then runs each stage for every layer (with
+  `$DOTFILES_LAYER` set to that layer) before the next stage:
+  bash: `os/<os>.sh`, `common/env.sh`, `common/aliases.sh`,
+  `common/functions.sh`, legacy `~/.config/shell/local.sh`, `bash/rc.bash`.
+  zsh: `zsh/early.zsh` first, then the same, ending with `zsh/rc.zsh`.
+- Everything under `shell/common`, `shell/os` must parse in **both bash and
+  zsh** (and `lib/os.sh` in plain `sh`). Only bash/zsh-specific settings
+  (history, prompt, completion, shopt/setopt) go in the per-shell stages.
 - Guard tool-specific aliases with `has_cmd`.
-- zsh plugins are submodules under `shell/zsh/plugins/`. zshrc runs
+- zsh plugins are submodules under `shell/zsh/plugins/`. `early.zsh` runs
   `git submodule update --init` itself if they're missing (fresh clone without
-  `--recursive`) and falls back to a plain prompt if that fails. Plugins are
-  sourced directly, no plugin manager. Anything that prints or reads input
-  must go above the p10k instant-prompt block at the top of zshrc.
+  `--recursive`) and `rc.zsh` falls back to a plain prompt if that fails.
+  Plugins are sourced directly, no plugin manager. Anything that prints or
+  reads input must go in `early.zsh` above the p10k instant-prompt block.
 - `p10k configure` writes back to `shell/zsh/p10k.zsh` (via
   `POWERLEVEL9K_CONFIG_FILE`); review the diff, it replaces the trimmed file
   with the full generated one.
 - In tmux, `ssh-refresh` runs before every prompt (bash `PROMPT_COMMAND`, zsh
   `precmd`) so panes use the ssh agent of whichever client attached last.
-- Exported for use anywhere: `$DOTFILES`, `$DOTFILES_OS`, `$DEV` (`~/dev`).
+- Exported for use anywhere: `$DOTFILES`, `$DOTFILES_LAYERS`, `$DOTFILES_OS`,
+  `$DEV` (`~/dev`).
 
 ## SSH notes
 
@@ -135,11 +161,15 @@ nixos/templates/      Reference NixOS configuration.nix, not linked
 There are no tests. Before committing:
 - `bash -n` / `zsh -n` on any changed shell files (both shells for shared ones).
 - `HOME=$(mktemp -d) ./setup.sh` followed by `./setup.sh -s` gives a full run in
-  a sandbox home. Add `GSETTINGS_BACKEND=memory` so the terminal steps don't
-  touch the real desktop settings; terminal-font checks then always say
-  `todo`, because dconf reads its database from `$HOME`. To exercise the
-  macOS route, put a stub `uname` that prints `Darwin` for `-s` first on
-  `PATH`.
+  a sandbox home (`--skip 'step: *'` leaves out the slow steps). Add
+  `GSETTINGS_BACKEND=memory` so the terminal steps don't touch the real
+  desktop settings; terminal-font checks then always say `todo`, because
+  dconf reads its database from `$HOME`. To exercise the macOS route, put a
+  stub `uname` that prints `Darwin` for `-s` first on `PATH`.
+- Layering: make a throwaway downstream dir with a `setup.sh` that execs this
+  one with `--layer` (see the integration guide), give it a few files, run
+  it in the sandbox, then run this repo's `./setup.sh` again and check the
+  downstream pieces are gone (`-s` shows no `stale`).
 - `HOME=<sandbox> bash -ic 'echo $DOTFILES'` and the same with `zsh -ic`
   check that the shells start up.
 
@@ -148,8 +178,8 @@ There are no tests. Before committing:
 Done (branch `dotfiles-overhaul`):
 - Removed the Windows tooling (`environment/windows`, VS Code `.bat` copiers,
   nvim `portable_environment`, Windows branches in nvim and VS Code settings).
-- Restructured into the layout above: `setup.sh` (Linux) routes to
-  `setup-macos.sh` on macOS, with shared `lib/link.sh` and `lib/os.sh`.
+- Restructured into one repo of linked configs (`setup.sh`, `setup-macos.sh`,
+  `lib/link.sh`); superseded by the layered build below.
 - Replaced the old per-tool link scripts (`tmux/symlink_conf.sh`, and the
   config-linking half of the nvim installer).
 - Shared bash+zsh shell layer. The old repo `.bashrc` aliases/functions now
@@ -173,16 +203,29 @@ Done (branch `dotfiles-overhaul`):
   Nerd Fonts + GNOME Terminal profile scripts, cheat sheet. Not ported on
   purpose: that repo's "append a source line to the distro ~/.bashrc"
   approach (this repo links its own bashrc) and its `MSPECK_TOOLING_PATH`
-  (same role as `$DOTFILES`).
+  (same role as `$DOTFILES`). The layered build later adopted the managed
+  block in the host's rc files after all, for host-wins ordering.
+
+Done (branch `layered-build`):
+- Layered build: `lib/build.sh` + `layer.sh` replace `lib/link.sh` and the
+  two per-OS manifests. Every target gathers from all layers; downstream
+  repos plug in with `--layer`; host layer in `~/.config/dotfiles/host/`;
+  stale pruning; `docs/integration-guide.md`.
+- Shell files split into stages (`shell/bash/rc.bash`, `shell/zsh/early.zsh`,
+  `rc.zsh`, `env.zsh`); `shell/init.sh` replaced by generated loaders.
 
 Caveats / open items:
-- `setup.sh` has not been run against the real `$HOME` yet. The first run
-  backs up the stock Ubuntu `~/.bashrc` and `~/.claude/settings.json`, and
-  migrates `~/.pi/agent` off pi-harness (exercised in a sandbox copy).
-- Claude Code and pi write to their own `settings.json` (e.g. `/config`
-  changes). If either tool replaces the symlink with a regular file on save,
-  `./setup.sh -s` will report it as `FILE`. Copy the changes back into the
-  repo and re-link.
+- The layered `setup.sh` has not been run against the real `$HOME` yet; it
+  still has the old symlinks. The first run replaces them (shown as `LEGACY`
+  by `-s`) with real files holding a managed block, per-item links and
+  merged JSON. Exercised on a sandbox copy of that layout.
+- Merged JSON (Claude Code, pi, VS Code settings): changes an app saves to a
+  key the layers set are reset by the next `./setup.sh` (`-s` shows `DIFF`;
+  a backup is kept). Put lasting changes in a layer, or the host layer for
+  one machine. Keys the layers don't set are left alone.
+- Blocks with copied content (`agents/AGENTS.md`, `ghostty/config`,
+  `pi/APPEND_SYSTEM.md`) and generated files need `./setup.sh` after an edit;
+  `-s` shows `DIFF` until then. Linked and include-based targets are live.
 - Don't put machine-specific config (hardware, local services) in this
   repo; it targets several machines. Exception: the LAN-wide home model
   server in `pi/extensions/home-models.ts` and its search MCP server in

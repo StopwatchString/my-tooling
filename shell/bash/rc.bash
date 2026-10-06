@@ -1,25 +1,6 @@
-# ~/.bashrc — symlinked from the dotfiles repo (shell/bash/bashrc).
+# bash interactive settings: history, prompt, completion. The last stage of
+# the generated ~/.config/dotfiles/build/bashrc, after shell/common/.
 
-# Non-interactive shells: do nothing.
-case $- in
-  *i*) ;;
-  *) return ;;
-esac
-
-# Resolve the repo root by following the ~/.bashrc symlink. No `readlink -f`
-# because macOS ships bash 3.2 and older BSD readlink.
-_src="${BASH_SOURCE[0]}"
-while [ -L "$_src" ]; do
-  _dir="$(cd "$(dirname "$_src")" && pwd -P)"
-  _src="$(readlink "$_src")"
-  case "$_src" in /*) ;; *) _src="$_dir/$_src" ;; esac
-done
-DOTFILES="$(cd "$(dirname "$_src")/../.." && pwd -P)"
-unset _src _dir
-
-. "$DOTFILES/shell/init.sh"
-
-# --- bash-specific ---
 HISTCONTROL=ignoreboth
 HISTSIZE=10000
 HISTFILESIZE=20000
