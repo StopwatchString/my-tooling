@@ -140,7 +140,11 @@ servers every machine should have here.
   - `reviewer.md`: read-only correctness review, findings with file:line
   - `merger.md`: merges a moved main branch into a finished change, resolves
     conflicts keeping both intents, re-runs the checks
-- `skills/`, `themes/`: empty for now
+- `prompts/`: prompt templates (`/name` commands)
+  - `research.md`: `/research <topic> [lead...]` runs the shared `research`
+    skill (`ai/skills/research/`): a plan, one read-only background agent
+    per item, then a merged report in `./research-<task-slug>/`
+- `skills/`, `themes/`: empty for now (shared skills live in `../ai/skills/`)
 
 Not tracked (machine-local or secret, stay in `~/.pi/agent/`): `auth.json`,
 `models.json`, `models-store.json`, `trust.json`, `sessions/`, `bin/`, `install/`.
