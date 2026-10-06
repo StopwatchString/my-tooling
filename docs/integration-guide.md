@@ -135,8 +135,10 @@ starting with `.` (e.g. `.gitkeep`) are ignored.
   clangd): re-run `./setup.sh` after editing. `-s` shows `DIFF` until then.
 - **Merged JSON**: objects merge recursively, later layer wins per key. An
   array *inside* an object is replaced whole. A top-level array (VS Code
-  keybindings) gets entries appended. The merge goes over the live file, so
-  keys the app or the user set and no layer mentions survive. Keys a layer
+  keybindings) gets entries appended. A `null` value deletes the key, so a
+  higher layer can drop a key a lower layer sets. The merge goes over the
+  live file, so keys the app or the user set and no layer mentions survive.
+  Keys a layer
   sets are reset on every run (with a backup). Keys a layer stops setting are
   removed, unless someone changed their value since. JSONC (`//`, `/* */`,
   trailing commas) is accepted in layer files.
@@ -144,8 +146,9 @@ starting with `.` (e.g. `.gitkeep`) are ignored.
   entirely, with a `WARN`. Copy the base's content first if you want to
   extend it.
 - **Collections**: you can add items, or replace one by using the same name
-  (with a `WARN`). You can't remove a lower layer's item. Use `--skip` on the
-  whole target if you must.
+  (with a `WARN`). To remove a lower layer's item, list its name in a
+  `.remove-<item>` file in your own collection directory (one name per line,
+  `#` comments allowed); it only applies to items from lower layers.
 
 ## Shells
 
@@ -236,10 +239,10 @@ Paths named `<path>` are relative to a layer root. `<dest>` is absolute.
 | Function | Does |
 |---|---|
 | `link <path> <dest>` | Symlink `dest` to `<path>` from the highest layer that has it (`WARN` when one overrides another). |
-| `link_each <dir> <dest dir>` | Make `dest dir` a real directory and symlink every item of `<dir>`, from every layer, into it by name. Later layer wins on a name clash (`WARN`). Items in `dest dir` that setup didn't create are left alone. |
+| `link_each <dir> <dest dir>` | Make `dest dir` a real directory and symlink every item of `<dir>`, from every layer, into it by name. Later layer wins on a name clash (`WARN`). A `.remove-<item>` file in a layer's `<dir>` lists item names (one per line) it removes from lower layers. Items in `dest dir` that setup didn't create are left alone. |
 | `block <dest> top\|bottom <style> <render…>` | Keep a block, delimited by marker comments, holding the output of the render command in a host-owned file. `style`: `hash` (`#`), `lua` (`--`) or `html` (`<!-- -->`). Use `top` when later lines override earlier ones, and `bottom` when the first value wins. The file is created if missing. A non-empty file is backed up before the block is first added. |
 | `generate <dest> <render…>` | Write the output of the render command, under a `# dotfiles: generated…` header, as the whole file. For formats without includes or "later wins" ordering. Needs `#` comments. Host overrides go in the host layer. |
-| `json <path> <dest> [jq filter]` | Merge `<path>` from every layer over the live JSON file (see Merged JSON above). The filter runs on the result. Needs `jq`. |
+| `json <path> <dest> [jq filter]` | Merge `<path>` from every layer over the live JSON file (see Merged JSON above). A `null` value deletes the key. The filter runs on the result. Needs `jq`. |
 | `step <name> <check fn> <apply fn>` | Non-file setup: `apply` runs only if `check` fails (the check's output is hidden). `-s` shows `ok`/`todo`. Uninstall doesn't undo steps. |
 | `shadow_check <dir>` | `WARN` for files under `<dir>` that exist in two layers. |
 
@@ -288,8 +291,10 @@ copy of the path.
 Declaring the same target twice with the same arguments is fine; it runs
 once. That lets two independent layers both add, say, git support. Declaring
 the same `<dest>` with *different* arguments is a `CONFLICT` problem: you
-can't redirect or redefine a base target. Use `--skip` plus your own
-target if you really need to replace one.
+can't redirect or redefine a base target. If you really need to replace
+one, skip the lower layer's target with a layer-scoped `--skip` pattern
+(`--skip '<lower layer's name>:<dest pattern>`) and declare your own target
+at the same dest.
 
 ## Flags
 
@@ -302,7 +307,11 @@ All pass through your `setup.sh`:
   matchable as `step: <name>`), matches the shell pattern. E.g.
   `--skip "$HOME/.config/ghostty/*"`, `--skip 'step: *'`. A skipped target
   isn't declared, so anything an earlier run built for it is removed as
-  stale.
+  stale. A plain pattern matches targets from every layer at that dest, so it
+  can't be used to replace a target. `<layer name>:PATTERN` (name = directory
+  name, `host` for the host layer) matches only that layer's targets: use it
+  when a higher layer declares its own target at the same dest and wants to
+  replace the lower one's.
 
 Status labels: `ok`, `absent` (not built yet), `DIFF` (out of date), `FILE`
 (a real file is in the way; backed up on setup), `OTHER` (a symlink

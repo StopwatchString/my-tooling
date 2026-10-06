@@ -72,14 +72,17 @@ nixos/templates/      Reference NixOS configuration.nix, not linked
   as they're declared and each one gathers its path from **every** layer:
   - `link <path> <dest>`: symlink to the highest layer's file.
   - `link_each <dir> <dest dir>`: link every item of `<dir>` from every
-    layer; same name in two layers → later wins, with a `WARN`.
+    layer; same name in two layers → later wins, with a `WARN`. A
+    `.remove-<item>` file in a layer's `<dir>` lists item names (one per
+    line) it removes from lower layers.
   - `block <dest> top|bottom hash|lua|html <render...>`: a marked block in a
     file the host owns; the host's lines outside it win.
   - `generate <dest> <render...>`: a whole generated file (no includes
     possible); host overrides go in the host layer.
   - `json <path> <dest> [filter]`: deep-merge every layer's JSON(C) over the
     live file, for files the app also writes. Removes keys a layer stops
-    setting. Needs `jq`.
+    setting; a `null` value deletes the key, so a higher layer can drop a
+    lower layer's key. Needs `jq`.
   - `step <name> <check fn> <apply fn>`: setup that isn't a file (zsh plugin
     submodules, fonts + terminal font, Neovim nightly, GNOME Terminal
     profile). The apply only runs when the check fails. Scripts that back a

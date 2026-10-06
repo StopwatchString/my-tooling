@@ -58,6 +58,8 @@ See docs/integration-guide.md in $DOTFILES.
   --skip PATTERN
                 Leave out targets whose destination or step name matches the
                 shell pattern (e.g. "*/ghostty/*", "GNOME Terminal profile").
+                "<layer name>:PATTERN" skips only that layer's targets, so a
+                layer can replace a lower one's target at the same dest.
   -h, --help    Show this help.
 EOF
 }
@@ -116,8 +118,12 @@ record() { printf '%s\t%s\n' "$1" "$2" >> "$TMPD/record"; }
 # it's skipped or was already declared identically (two layers may declare
 # the same target). A different declaration for the same dest is a problem.
 claim() {
-  local dest="$1" sig="$2" prev p
+  local dest="$1" sig="$2" prev p lname
+  lname="$(layer_name "$LAYER")"
   for p in ${SKIPS[@]+"${SKIPS[@]}"}; do
+    # A pattern prefixed "<layer name>:" only skips that layer's targets, so
+    # a layer can replace a lower one's target at the same dest.
+    case $p in "$lname:"*) p="${p#"$lname:"}" ;; esac
     # shellcheck disable=SC2254
     case $dest in $p) say skip "$dest"; return 1 ;; esac
     case ${dest#step: } in $p) say skip "$dest"; return 1 ;; esac
@@ -258,14 +264,27 @@ link() {
 # layer into dest dir under the same name. Same name in two layers: the later
 # layer's item wins, with a WARN. Other items in dest dir are left alone.
 link_each() {
-  local sub="$1" dest="$2" l item name prev
+  local sub="$1" dest="$2" l item name prev rname rl keep i j l2
   claim "$dest" "link_each $sub" || return 0
   : > "$TMPD/items"
+  : > "$TMPD/removes"
   for l in "${LAYERS[@]}"; do
     [[ -d $l/$sub ]] || continue
-    for item in "$l/$sub"/*; do
+    for item in "$l/$sub"/* "$l/$sub"/.*; do
       [[ -e $item || -L $item ]] || continue
       name="${item##*/}"
+      case $name in .|..) continue ;; esac
+      # .remove-<x> lists item names (one per line) that this layer removes
+      # from lower layers.
+      case $name in
+        .remove-*)
+          while IFS= read -r rname; do
+            case $rname in ''|\#*) continue ;; esac
+            printf '%s\t%s\n' "$rname" "$l" >> "$TMPD/removes"
+          done < "$item"
+          continue
+          ;;
+      esac
       prev="$(awk -F'\t' -v n="$name" '$1 == n { p = $3 } END { print p }' "$TMPD/items")"
       [[ -n $prev ]] && warn "$dest/$name: $(layer_name "$l") overrides $(layer_name "$prev")"
       printf '%s\t%s\t%s\n' "$name" "$item" "$l" >> "$TMPD/items"
@@ -273,10 +292,29 @@ link_each() {
   done
   ensure_dir "$dest"
   # Last entry per name wins; keep first-seen order.
-  awk -F'\t' '!($1 in src) { order[++n] = $1 } { src[$1] = $2 }
-    END { for (i = 1; i <= n; i++) print order[i] "\t" src[order[i]] }' \
+  awk -F'\t' '!($1 in src) { order[++n] = $1 } { src[$1] = $2; lyr[$1] = $3 }
+    END { for (i = 1; i <= n; i++) print order[i] "\t" src[order[i]] "\t" lyr[order[i]] }' \
     "$TMPD/items" > "$TMPD/winners"
-  while IFS=$'\t' read -r name item <&3; do
+  while IFS=$'\t' read -r name item l <&3; do
+    # A remove entry from a layer above the item's layer drops the item.
+    keep=1; i=-1
+    for l2 in "${LAYERS[@]}"; do
+      [[ $l2 == "$l" ]] && break
+      i=$((i + 1))
+    done
+    while IFS=$'\t' read -r rname rl; do
+      [[ $rname == "$name" ]] || continue
+      j=-1
+      for l2 in "${LAYERS[@]}"; do
+        [[ $l2 == "$rl" ]] && break
+        j=$((j + 1))
+      done
+      if (( j > i )); then
+        keep=0
+        say removed "$dest/$name (removed by $(layer_name "$rl"))"
+      fi
+    done < "$TMPD/removes"
+    (( keep )) || continue
     [[ $MODE == uninstall ]] || record link "$dest/$name"
     place_link "$item" "$dest/$name"
   done 3< "$TMPD/winners"
@@ -470,7 +508,9 @@ json_state() {
 # applied last time ($p), drop what the layers no longer set (where the live
 # value is still the one setup wrote), then merge $m over the result. Objects
 # merge recursively (arrays inside are replaced); a top-level array (e.g.
-# VS Code keybindings) gets the layers' entries appended if missing.
+# VS Code keybindings) gets the layers' entries appended if missing. A null
+# in $m deletes the key (from the live file too), so a higher layer can undo
+# a lower layer's key.
 JSON_APPLY='
 def has_el($a; $x): any($a[]; . == $x);
 def get($q): try getpath($q) catch null;
@@ -487,7 +527,9 @@ def has_path($q):
     | reduce ($p | [paths(type != "object")] | map(select(all(.[]; type == "string"))))[] as $q
         ($live;
          if ($m | has_path($q) | not) and get($q) == ($p | get($q)) then delpaths([$q]) else . end)
-    | . * $m
+    | ($m | [paths(type == "null")] | map(select(all(.[]; type == "string")))) as $del
+    | reduce $del[] as $q (.; delpaths([$q]))
+    | . * (reduce $del[] as $q ($m; delpaths([$q])))
   end'
 
 # json <path> <dest> [jq filter]
