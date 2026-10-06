@@ -11,11 +11,6 @@
  *   tools: -write, -edit, +grep    # +add / -remove from the defaults; bare names = exact list
  *   model: home/swift              # provider/id; defaults to the main session's model
  *   thinking: high                 # defaults to the main session's level
- *   then: reviewer                 # after each finished task, this personality reviews it
- *   rounds: 2                      # most reviews per task; failed ones go back for fixes
- *   tester: tester                 # writes tests before the review when dispatched with tests: true
- *   merger: merger                 # rebases the work when the main branch moved before merge-back
- *   default: true                  # use for agents that may edit files and name no personality
  *   ---
  *   Extra system prompt, appended after the standard subagent brief.
  */
@@ -28,11 +23,6 @@ export type Personality = {
 	tools?: string;
 	model?: string;
 	thinking?: string;
-	then?: string;
-	rounds?: number;
-	tester?: string;
-	merger?: string;
-	default: boolean;
 	prompt: string;
 	path: string;
 };
@@ -53,11 +43,6 @@ function parse(path: string): Personality | undefined {
 		tools: meta.tools || undefined,
 		model: meta.model || undefined,
 		thinking: meta.thinking || undefined,
-		then: meta.then || undefined,
-		rounds: Number(meta.rounds) >= 1 ? Math.floor(Number(meta.rounds)) : undefined,
-		tester: meta.tester || undefined,
-		merger: meta.merger || undefined,
-		default: /^(true|yes)$/i.test(meta.default ?? ""),
 		prompt: (m ? m[2]! : text).trim(),
 		path,
 	};

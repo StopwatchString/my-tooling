@@ -72,23 +72,12 @@ servers every machine should have here.
     early: `agent_wait` returns what has finished and a foreground agent moves
     to the background (Ctrl+C still stops it). `agent_send` steers a running agent or
     continues a finished one with its context; `agent_stop` aborts.
-    `readonly: true` drops edit/write; `personality` picks a file from
-    `agents/`. Code changes go through a pipeline where every stage is a fresh
-    agent (new context, briefed with the spec and earlier reports):
-    implementation → tests (only with `tests: true`) → review, with a fresh
-    fixer and a fresh re-review on `VERDICT: FAIL` → merge-back. In a git
-    repository each editing agent works in its own worktree
-    (`<repo>/worktrees/pi-agent-<work>`, `<work>` from the agent's
-    description, on a branch of the same name, from the main checkout's
-    HEAD; `/worktrees/` is added to `.git/info/exclude`), so parallel agents build and test
-    independently. Merge-back commits the work on the branch; if the main
-    checkout's branch moved, a `merger` agent merges it into the worktree and
-    re-checks, looping until the worktree has the branch's tip; then that
-    branch is fast-forwarded and the worktree and branch are removed. The whole
-    merge-back holds `.git/pi-merge.lock`, so only one runs per repository even
-    across pi processes (a lock left by a dead pi on this host is taken over). Work that fails review or can't fast-forward (e.g. your
-    uncommitted edits overlap) stays on its branch; the report says where
-    (`git worktree list`, `git worktree prune` to clean up). A `subagents` system-prompt section tells the model when to
+    `readonly: true` drops edit/write; `cwd` runs the agent in another
+    directory (the `implement` skill points it at a git worktree);
+    `personality` picks a file from `agents/`. An editing agent works
+    directly in its `cwd`: worktrees, review loops and merge-back for code
+    changes live in the shared `implement` skill (`ai/skills/implement/`,
+    `/implement`), not here. A `subagents` system-prompt section tells the model when to
     delegate (it does so on its own when asked for agents, parallel work, or
     broad searches) and lists the personalities. Children load the normal
     extensions, MCP and tool search, but not `agent/` itself (no nesting);
@@ -121,29 +110,19 @@ servers every machine should have here.
     removed from the transcript entirely (pi's hidden label is global to all
     blocks). Press Ctrl+T to show thinking blocks; note this saves
     `hideThinkingBlock` to settings, and `./setup.sh` resets it
-- `agents/`: subagent personalities, one `.md` each: frontmatter `name`,
-  `description`, optional `tools` (`+name`/`-name` against the defaults, or a
-  bare list), `model` (`provider/id`), `thinking`, `then` (a personality that
-  reviews each finished task; `VERDICT: FAIL` sends the findings back to fix),
-  `rounds` (most reviews per task, default 2), `tester` (writes tests when
-  dispatched with `tests: true`), `merger` (merges a moved main branch into the work at merge-back),
-  `default: true` (used for agents that may edit files and name no
-  personality); the body is appended to the
-  subagent's system prompt. Read on every dispatch, so edits need no
-  `/reload`. Trusted projects can add their own in `.pi/agents/`.
-  - `implementer.md`: the default for code changes; implements to the spec,
-    then fresh agents test (`tester`), review (`reviewer`), fix (another
-    `implementer`, up to 2 reviews) and merge it (`merger`). The result is its
-    report plus every stage's report and the merge-back outcome.
-  - `tester.md`: writes tests for a finished change; edits only test files and
-    reports implementation bugs instead of fixing them
-  - `reviewer.md`: read-only correctness review, findings with file:line
-  - `merger.md`: merges a moved main branch into a finished change, resolves
-    conflicts keeping both intents, re-runs the checks
+- `agents/`: subagent personalities, one `.md` each (none yet): frontmatter
+  `name`, `description`, optional `tools` (`+name`/`-name` against the
+  defaults, or a bare list), `model` (`provider/id`), `thinking`; the body is
+  appended to the subagent's system prompt. Read on every dispatch, so edits
+  need no `/reload`. Trusted projects can add their own in `.pi/agents/`. The
+  implementer/tester/reviewer/merger roles moved to `ai/skills/implement/roles/`.
 - `prompts/`: prompt templates (`/name` commands)
   - `research.md`: `/research <topic> [lead...]` runs the shared `research`
     skill (`ai/skills/research/`): a plan, one read-only background agent
     per item, then a merged report in `./research-<task-slug>/`
+  - `implement.md`: `/implement <plan>` runs the shared `implement` skill
+    (`ai/skills/implement/`): steps in parallel git worktrees, each through
+    implementer, tester, reviewer loops and a locked merge-back (`wt.sh`)
 - `skills/`, `themes/`: empty for now (shared skills live in `../ai/skills/`)
 
 Not tracked (machine-local or secret, stay in `~/.pi/agent/`): `auth.json`,

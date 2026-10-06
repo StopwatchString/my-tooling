@@ -22,41 +22,18 @@
  *
  * A child loads the normal extensions (minus this one, so no nesting), MCP
  * and tool search, uses the main session's model unless its personality says
- * otherwise, and writes its transcript to $TMPDIR/pi-agents/<session>/<id>/.
- *
- * Pipeline: after an agent finishes, each further stage is a fresh agent (a new context,
- * briefed only with the spec and the earlier reports), working on the same change:
- *   1. implementation: the dispatched agent itself
- *   2. tests (`tests: true` on the agent tool): the personality's `tester:` writes tests
- *   3. review (`then:`): a reviewer ends with VERDICT: PASS or FAIL; on FAIL a new agent of
- *      the same personality fixes the findings and a new reviewer checks again, up to
- *      `rounds` reviews
- *   4. merge-back, after a passing review (or with no `then:`), described below
- * The result returned or delivered is the agent's report plus every stage's report. A
- * personality with `default: true` is used for agents that may edit files and name no
- * personality, so delegated code changes always go through the pipeline.
- *
- * Worktrees: in a git repository, every agent that may edit files gets its own git worktree
- * at <repo>/worktrees/pi-agent-<work> on a branch of the same name (<work> from its
- * description; `/worktrees/` goes in .git/info/exclude), branched from the main checkout's
- * HEAD, so agents build and test without stepping on each other; its stage agents work
- * there too. Merge-back commits the work on the branch, then takes the repository's merge
- * lock (a file in the git dir, shared by every pi process) and loops: if the main checkout's
- * branch has moved past what the worktree has, a fresh `merger:` agent merges it into the
- * worktree, resolves conflicts and re-runs the checks; once the worktree has the branch's
- * tip, the branch is fast-forwarded to it and the worktree and branch removed. Work that
- * fails review or can't be fast-forwarded stays on its branch, and the report says where.
+ * otherwise, runs in `cwd` (default: the main session's; the `implement` skill
+ * points it at a git worktree), and writes its transcript to
+ * $TMPDIR/pi-agents/<session>/<id>/.
  *
  * Concurrency is per model provider: `subagents.maxConcurrency` in
  * ~/.pi/agent/settings.json, either a number or { "default": 3, "<provider>": n }.
  * $PI_AGENT_MAX_CONCURRENCY overrides the default; the fallback is 3.
  */
-import { execFile } from "node:child_process";
-import { appendFileSync, existsSync, linkSync, mkdirSync, readFileSync, realpathSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
-import { hostname, tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { existsSync, mkdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
 import { Type } from "@earendil-works/pi-ai";
 import type { AgentSession, ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import {
@@ -81,42 +58,6 @@ const DEFAULT_WAIT_S = 1800;
 const KEEP_FINISHED = 8;
 /** Transcript lines in an expanded agent tool block. */
 const TAIL_LINES = 30;
-/** Reviews per task when a `then:` personality gives no `rounds`. */
-const DEFAULT_ROUNDS = 2;
-/** Merges of the main branch into a worktree before giving up on a branch that keeps moving. */
-const MERGE_ATTEMPTS = 3;
-/** Agents' worktrees go in this directory at the top of the repository. */
-const WORKTREES_DIR = "worktrees";
-
-const execFileP = promisify(execFile);
-
-/** Run git in `cwd`; resolves to trimmed stdout, rejects with git's stderr. */
-async function git(cwd: string, ...args: string[]): Promise<string> {
-	try {
-		const { stdout } = await execFileP("git", args, { cwd, maxBuffer: 16 * 1024 * 1024 });
-		return stdout.trim();
-	} catch (e) {
-		const err = e as { stderr?: string; message?: string };
-		throw new Error(`git ${args[0]}: ${(err.stderr || err.message || String(e)).trim()}`);
-	}
-}
-
-/** An agent's own git worktree and branch. */
-export type Worktree = {
-	/** Top level of the main checkout. */
-	root: string;
-	path: string;
-	/** Where the agent works: the worktree plus the main session's subdirectory. */
-	cwd: string;
-	branch: string;
-	/** Branch of the main checkout the work merges back into. */
-	target: string;
-	/** Commit the worktree started from (later: the main-branch commit last merged into it). */
-	base: string;
-	notes: string[];
-	/** Short sha now at the tip of `target`, or "nothing to merge"; the worktree is gone. */
-	merged?: string;
-};
 
 export type Run = {
 	id: string;
@@ -142,29 +83,8 @@ export type Run = {
 	claimed: boolean;
 	unqueue?: () => void;
 	listeners: Set<() => void>;
-	persona?: Personality;
-	/** The task as given (plus any follow-ups), for the reviewer. */
-	spec: string;
-	/** Set while a pipeline stage runs after this agent's work, e.g. "review 1/2", "merge". */
-	stage?: string;
-	/** The stage agent (tester, reviewer, fixer, merger) working on this agent's change right now. */
-	helper?: Run;
-	/** Set on a stage agent: the id of the agent whose pipeline it belongs to. Internal; never delivered on its own. */
-	stageOf?: string;
-	/** The latest review of this agent's work. */
-	review?: { by: string; verdict: "pass" | "fail" | "unclear"; text: string; round: number; rounds: number };
-	/** Run a test-writing stage before review. */
-	tests?: boolean;
-	/** Reports from this pipeline's stage agents, in order. */
-	log: { title: string; text: string }[];
 	/** Directory the child session runs in. */
 	cwd: string;
-	/** May edit files and owns its pipeline: give it a worktree, if cwd is in a git repository. */
-	isolate: boolean;
-	/** Its worktree; stage agents share their pipeline's. */
-	wt?: Worktree;
-	/** Stop requested during the pipeline: no further rounds. */
-	halt?: boolean;
 };
 
 function maxConcurrency(provider: string): number {
@@ -224,21 +144,6 @@ function brief(run: Run, persona: Personality | undefined): string {
 		"  final message instead of guessing.",
 	];
 	if (run.readonly) lines.push("- Read-only task: do not modify files or run commands that change state.");
-	if (run.wt) {
-		lines.push(
-			`- You work in a dedicated git worktree, ${run.wt.path}, on branch ${run.wt.branch}. Build, install`,
-			"  dependencies, and run tests there freely; other agents have their own worktrees. Never touch the",
-			`  main checkout at ${run.wt.root}. Untracked and ignored files (node_modules, build output, .env) and`,
-			"  submodules start out missing; set up what your checks need.",
-		);
-		if (!run.readonly) {
-			lines.push(
-				"- Don't commit unless your task says to: the harness commits the work on the branch and merges it",
-				"  back. End your final message with a line `COMMIT: <subject>`, an imperative commit subject for",
-				"  the change as a whole, under 72 characters.",
-			);
-		}
-	}
 	lines.push(
 		"- End with your answer for the dispatcher, in one of these forms: a short direct answer; a",
 		"  summary of what you did (files changed, commands run, anything left undone); or, for long",
@@ -246,159 +151,6 @@ function brief(run: Run, persona: Personality | undefined): string {
 	);
 	if (persona?.prompt) lines.push("", persona.prompt);
 	return lines.join("\n");
-}
-
-/** "Add retry to fetch()" -> "add-retry-to-fetch". */
-function slug(text: string): string {
-	return (
-		text
-			.toLowerCase()
-			.replace(/[^a-z0-9]+/g, "-")
-			.slice(0, 40)
-			.replace(/^-+|-+$/g, "") || "work"
-	);
-}
-
-/** Keep `worktrees/` out of the main checkout's `git status`, without touching tracked files. */
-async function excludeWorktrees(root: string) {
-	const file = await git(root, "rev-parse", "--path-format=absolute", "--git-path", "info/exclude");
-	const text = existsSync(file) ? readFileSync(file, "utf8") : "";
-	if (text.split(/\r?\n/).some((l) => l.trim() === `/${WORKTREES_DIR}/`)) return;
-	mkdirSync(dirname(file), { recursive: true });
-	appendFileSync(file, `${text && !text.endsWith("\n") ? "\n" : ""}/${WORKTREES_DIR}/\n`);
-}
-
-/**
- * A new worktree for `run` at <repo>/worktrees/pi-agent-<work> (branch of the same name),
- * branched from the HEAD of `cwd`'s checkout; undefined outside a git repository.
- */
-async function createWorktree(run: Run, cwd: string): Promise<Worktree | undefined> {
-	let root: string;
-	let prefix: string;
-	try {
-		[root = "", prefix = ""] = (await git(cwd, "rev-parse", "--show-toplevel", "--show-prefix")).split("\n");
-		await git(cwd, "rev-parse", "--verify", "-q", "HEAD");
-	} catch {
-		return undefined; // not a repository, or one with no commits yet
-	}
-	const target = await git(root, "symbolic-ref", "-q", "--short", "HEAD").catch(() => "");
-	if (!target) throw new Error("the main checkout is on a detached HEAD; check out a branch so work can merge back into it");
-	const base = await git(root, "rev-parse", "HEAD");
-	await excludeWorktrees(root);
-	const name = `pi-agent-${slug(run.description)}`;
-	let branch = "";
-	let path = "";
-	for (let n = 1; ; n++) {
-		branch = n === 1 ? name : `${name}-${n}`;
-		path = join(root, WORKTREES_DIR, branch);
-		const taken = existsSync(path) || (await git(root, "rev-parse", "--verify", "-q", `refs/heads/${branch}`).then(() => true, () => false));
-		if (taken) continue;
-		try {
-			await git(root, "worktree", "add", "-q", "-b", branch, path, base);
-			break;
-		} catch (e) {
-			// another agent took the name between the check and the add: try the next one
-			if (n >= 50 || !existsSync(path)) throw e;
-		}
-	}
-	const notes: string[] = [];
-	if (await git(root, "status", "--porcelain")) {
-		notes.push(`The main checkout had uncommitted changes; ${run.id} started from ${target} at ${base.slice(0, 8)} without them.`);
-	}
-	return { root, path, cwd: join(path, prefix), branch, target, base, notes };
-}
-
-/** The last `COMMIT: <subject>` line of a report, else `fallback`. */
-function commitSubject(report: string, fallback: string): string {
-	const m = [...report.matchAll(/^\s*COMMIT:\s*(.+?)\s*$/gm)].pop();
-	return (m?.[1] ?? fallback).replace(/^[`"']|[`"']$/g, "").slice(0, 100);
-}
-
-/** Commit whatever is uncommitted in the worktree; true if there was anything. */
-async function commitAll(wt: Worktree, message: string): Promise<boolean> {
-	await git(wt.path, "add", "-A");
-	if (!(await git(wt.path, "status", "--porcelain"))) return false;
-	await git(wt.path, "commit", "-q", "-m", message);
-	return true;
-}
-
-async function removeWorktree(wt: Worktree) {
-	await git(wt.root, "worktree", "remove", "--force", wt.path);
-	await git(wt.root, "branch", "-D", wt.branch);
-}
-
-async function isAncestor(cwd: string, a: string, b: string): Promise<boolean> {
-	return git(cwd, "merge-base", "--is-ancestor", a, b).then(
-		() => true,
-		() => false,
-	);
-}
-
-/** A merge or rebase left half done in the worktree. */
-async function mergeInProgress(wt: Worktree): Promise<boolean> {
-	if (await git(wt.path, "rev-parse", "-q", "--verify", "MERGE_HEAD").then(() => true, () => false)) return true;
-	for (const dir of ["rebase-merge", "rebase-apply"]) {
-		const p = await git(wt.path, "rev-parse", "--path-format=absolute", "--git-path", dir);
-		if (existsSync(p)) return true;
-	}
-	return false;
-}
-
-function pidAlive(pid: number): boolean {
-	try {
-		process.kill(pid, 0);
-		return true;
-	} catch (e) {
-		return (e as NodeJS.ErrnoException).code === "EPERM";
-	}
-}
-
-/**
- * Take the repository's merge lock, shared by every pi process: <git common dir>/pi-merge.lock,
- * created exclusively and holding its owner. Waits (calling `waiting` each second) while someone
- * else holds it; a lock whose process on this host is gone is taken over. Resolves to the release.
- */
-async function lockMerges(root: string, owner: string, halted: () => boolean, waiting: (holder: string) => void): Promise<() => void> {
-	const file = join(await git(root, "rev-parse", "--path-format=absolute", "--git-common-dir"), "pi-merge.lock");
-	const mine = JSON.stringify({ pid: process.pid, host: hostname(), owner, since: new Date().toISOString() });
-	for (;;) {
-		try {
-			writeFileSync(file, mine, { flag: "wx" });
-			return () => {
-				try {
-					if (readFileSync(file, "utf8") === mine) unlinkSync(file);
-				} catch {
-					// already gone
-				}
-			};
-		} catch (e) {
-			if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
-		}
-		let text = "";
-		let holder: { pid?: number; host?: string; owner?: string; since?: string } = {};
-		try {
-			text = readFileSync(file, "utf8");
-			holder = JSON.parse(text);
-		} catch {
-			// gone again, or still being written: retry below
-		}
-		if (holder.pid && holder.host === hostname() && !pidAlive(holder.pid)) {
-			// Stale: move it aside, and drop it only if it's still the stale one (another waiter may have replaced it).
-			const aside = `${file}.${process.pid}`;
-			try {
-				renameSync(file, aside);
-				// A live lock moved aside by mistake goes back, unless a new one already took its place.
-				if (readFileSync(aside, "utf8") !== text) linkSync(aside, file);
-				unlinkSync(aside);
-			} catch {
-				// someone else got there first
-			}
-			continue;
-		}
-		if (halted()) throw new Error("stopped while waiting for the merge lock");
-		waiting(text ? `${holder.owner ?? "?"}, pid ${holder.pid ?? "?"}${holder.host === hostname() ? "" : ` on ${holder.host}`}` : "?");
-		await new Promise((resolve) => setTimeout(resolve, 1000));
-	}
 }
 
 export default function (pi: ExtensionAPI) {
@@ -579,255 +331,11 @@ export default function (pi: ExtensionAPI) {
 		});
 	}
 
-	/** Queue a finished unit of work for delivery as a message, unless a caller took the result. */
+	/** Queue a finished background result for delivery as a message, unless a caller took it. */
 	function deliver(run: Run) {
-		if (run.claimed || run.stageOf) return;
+		if (run.claimed) return;
 		pending.add(run);
 		flush();
-	}
-
-	/**
-	 * One unit of work: set up the worktree (first time), a prompt cycle, then the pipeline, each
-	 * stage a fresh agent in the same worktree: tests (`tests: true`), review rounds (`then:`; on a
-	 * failed review a new agent fixes the findings and a new reviewer checks again, up to `rounds`
-	 * reviews), and merge-back. Stage agents themselves (`stageOf`) just run their prompt.
-	 */
-	async function work(ctx: ExtensionContext, run: Run, text: string, start?: () => Promise<AgentSession>) {
-		run.halt = false;
-		if (run.isolate && !run.wt) {
-			run.stage = "worktree";
-			changed(run);
-			try {
-				run.wt = await createWorktree(run, ctx.cwd);
-			} catch (e) {
-				run.status = "failed";
-				run.error = `couldn't create a worktree: ${errorText(e)}`;
-				return;
-			} finally {
-				run.stage = undefined;
-			}
-			if (!run.wt) run.isolate = false;
-			else run.cwd = run.wt.cwd;
-			if (run.halt) {
-				run.status = "stopped";
-				if (run.wt) await removeWorktree(run.wt).catch(() => undefined);
-				return;
-			}
-		}
-		await cycle(run, text, start);
-		if (run.stageOf || run.status !== "done") return;
-		const persona = run.persona;
-		run.log = [];
-		run.review = undefined;
-		let latest = run.result ?? ""; // the newest implementation report
-		try {
-			let tests = "";
-			if (run.tests) {
-				const t = await stage(ctx, run, "tests", `tests for ${run.id}`, persona?.tester ?? "tester", [
-					`Another agent (${run.id}) just implemented the spec below. Write tests for the change.`,
-					...whereChange(run),
-					"",
-					"## Spec",
-					run.spec,
-					"",
-					`## ${run.id}'s report`,
-					latest,
-				]);
-				if (run.halt) return;
-				run.log.push({ title: `Tests by ${t.id}`, text: t.text });
-				tests = t.text;
-			}
-			if (persona?.then) {
-				const rounds = persona.rounds ?? DEFAULT_ROUNDS;
-				let previous = "";
-				for (let round = 1; round <= rounds; round++) {
-					const rv = await stage(ctx, run, `review ${round}/${rounds}`, `review ${run.id}`, persona.then, reviewPrompt(run, latest, tests, previous), true);
-					if (run.halt) return;
-					const m = [...rv.text.matchAll(/VERDICT:\s*(PASS|FAIL)/gi)].pop();
-					const verdict = !rv.ok || !m ? "unclear" : m[1]!.toUpperCase() === "PASS" ? "pass" : "fail";
-					run.review = { by: rv.id, verdict, text: rv.text, round, rounds };
-					const label = verdict === "pass" ? "PASS" : verdict === "unclear" ? "no clear verdict" : round === rounds ? "FAIL (review rounds used up)" : "FAIL";
-					run.log.push({ title: `Review ${round}/${rounds} by ${rv.id}: ${label}`, text: rv.text });
-					if (verdict !== "fail" || round === rounds) break;
-					const fx = await stage(ctx, run, `fixing ${round}/${rounds}`, `fix ${run.id}`, persona.name, [
-						`Another agent implemented the spec below, and a reviewer found problems with it. Fix what the review`,
-						"reports, nothing more. If you disagree with a finding, say why instead of changing the code.",
-						...whereChange(run),
-						"End with the same kind of report as the implementer's: files changed, checks run, open points.",
-						"",
-						"## Spec",
-						run.spec,
-						"",
-						"## Implementer's report",
-						latest,
-						"",
-						"## Review",
-						rv.text,
-					]);
-					if (run.halt) return;
-					run.log.push({ title: `Fixes by ${fx.id}`, text: fx.text });
-					if (!fx.ok) return; // the failed review stands; nothing merges
-					latest = fx.text;
-					previous = rv.text;
-				}
-			}
-			if (run.halt) return;
-			if (run.wt && (!run.review || run.review.verdict === "pass")) await mergeBack(ctx, run, latest);
-		} finally {
-			run.stage = undefined;
-			run.helper = undefined;
-			changed(run);
-		}
-	}
-
-	/** Where a stage agent finds the change it works on. */
-	function whereChange(run: Run): string[] {
-		if (!run.wt) return ["The change is in the working tree; start with `git status` and `git diff` if this is a git repository."];
-		return [`It is uncommitted in the git worktree you're working in; \`git status\` and \`git diff ${run.wt.base}\` show it.`];
-	}
-
-	function reviewPrompt(run: Run, latest: string, tests: string, previous: string): string[] {
-		return [
-			`Review the change another agent (${run.id}) made, against the spec it was given.`,
-			...whereChange(run),
-			...(run.wt ? [] : ["Other agents may have touched other files, so stick to the files this change concerns."]),
-			"Check that it does what the spec asks, nothing it doesn't, and has no defects; run the relevant checks and tests.",
-			"",
-			"## Spec",
-			run.spec,
-			"",
-			"## Implementer's report",
-			latest,
-			...(tests ? ["", "## Test writer's report", tests] : []),
-			...(previous ? ["", "## Previous review", "An earlier review found the problems below and they were fixed since; check that they are.", previous] : []),
-			"",
-			"End your final message with a line that is exactly `VERDICT: PASS` if nothing must change, or `VERDICT: FAIL` after listing what must change.",
-		];
-	}
-
-	/** Hand one pipeline stage of `run` to a fresh agent in its worktree and wait for its report. */
-	async function stage(
-		ctx: ExtensionContext,
-		run: Run,
-		label: string,
-		description: string,
-		personality: string,
-		prompt: string[],
-		readonly = false,
-	): Promise<{ id: string; ok: boolean; text: string }> {
-		run.stage = label;
-		changed(run);
-		let h: Run;
-		try {
-			h = dispatch(ctx, { description, prompt: prompt.join("\n"), personality, readonly, stageOf: run.id, cwd: run.cwd, worktree: run.wt });
-		} catch (e) {
-			// e.g. the personality doesn't exist
-			return { id: personality, ok: false, text: `${label}: ${errorText(e)}` };
-		}
-		run.helper = h;
-		changed(run);
-		await h.done;
-		run.helper = undefined;
-		if (h.status === "done") return { id: h.id, ok: true, text: h.result ?? "" };
-		return { id: h.id, ok: false, text: `${label} ${h.status}: ${h.error ?? "no result"}` };
-	}
-
-	/**
-	 * Commit the work on its branch and land it on the main checkout's branch, holding the
-	 * repository's merge lock (lockMerges) throughout so no other merge-back, in this or any
-	 * other pi, lands in between.
-	 */
-	async function mergeBack(ctx: ExtensionContext, run: Run, latest: string) {
-		const wt = run.wt!;
-		run.stage = "merge";
-		changed(run);
-		const subject = commitSubject(latest, run.description);
-		try {
-			await commitAll(wt, subject);
-			if ((await git(wt.path, "rev-list", "--count", `${wt.base}..HEAD`)) === "0") wt.merged = "nothing to merge";
-			else {
-				const release = await lockMerges(
-					wt.root,
-					`${run.id} ${wt.branch}`,
-					() => !!run.halt,
-					(holder) => {
-						run.stage = `waiting for merge lock (${holder})`;
-						changed(run);
-					},
-				);
-				try {
-					await land(ctx, run, wt, subject, latest);
-				} finally {
-					release();
-				}
-			}
-		} catch (e) {
-			wt.notes.push(`Not merged: ${errorText(e)}`);
-			return;
-		}
-		try {
-			await removeWorktree(wt);
-		} catch (e) {
-			wt.notes.push(`Couldn't remove the worktree: ${errorText(e)}`);
-		}
-	}
-
-	/**
-	 * The merge loop, under the lock: (1) check that the worktree has the main branch's current
-	 * tip; (2) if not, a fresh merger agent merges that tip into the worktree, resolves conflicts
-	 * and re-runs the checks, and back to (1); (3) once it has, fast-forward the main branch to it.
-	 */
-	async function land(ctx: ExtensionContext, run: Run, wt: Worktree, subject: string, latest: string) {
-		let merges = 0;
-		for (let check = 1; check <= MERGE_ATTEMPTS * 2; check++) {
-			run.stage = "merge";
-			changed(run);
-			const current = await git(wt.root, "symbolic-ref", "-q", "--short", "HEAD").catch(() => "");
-			if (current !== wt.target) throw new Error(`the main checkout is on ${current || "a detached HEAD"} now, not ${wt.target}`);
-			const head = await git(wt.root, "rev-parse", "HEAD");
-			if (await isAncestor(wt.path, head, "HEAD")) {
-				try {
-					await git(wt.root, "merge", "-q", "--ff-only", wt.branch);
-				} catch (e) {
-					// Moved outside pi between the check and the merge: check again. Otherwise (say,
-					// uncommitted edits in the main checkout are in the way) give up.
-					if ((await git(wt.root, "rev-parse", "HEAD")) === head) throw e;
-					continue;
-				}
-				wt.base = head;
-				wt.merged = await git(wt.root, "rev-parse", "--short", "HEAD");
-				return;
-			}
-			if (++merges > MERGE_ATTEMPTS) break;
-			const mg = await stage(ctx, run, `merging ${wt.target} ${merges}/${MERGE_ATTEMPTS}`, `merge ${run.id}`, run.persona?.merger ?? "merger", [
-				`Another agent's change, implementing the spec below, is committed on branch ${wt.branch} in the git worktree`,
-				`you're working in. Since the worktree last matched it, ${wt.target} in the main checkout moved from`,
-				`${wt.base.slice(0, 8)} to ${head.slice(0, 8)}. Bring the branch up to date so ${wt.target} can be fast-forwarded to it:`,
-				"",
-				`1. Run \`git merge --no-ff -m "Merge ${wt.target} into ${wt.branch}" ${head}\`. Resolve any conflicts so both`,
-				"   sides' intent survives, then `git add` the files and `git commit --no-edit`.",
-				"2. Re-run the checks that cover the change (build, tests) on the combined code and fix what breaks,",
-				"   committing the fixes on the branch.",
-				"3. Leave the worktree clean: merge finished, everything committed. Don't rebase or rewrite commits,",
-				"   and don't touch the main checkout.",
-				"",
-				"If the upstream changes make this change wrong or unnecessary, `git merge --abort` and say why.",
-				"",
-				"## Spec",
-				run.spec,
-				"",
-				"## Implementer's report",
-				latest,
-			]);
-			if (run.halt) throw new Error("stopped during merge-back");
-			run.log.push({ title: `Merge of ${wt.target} by ${mg.id}`, text: mg.text });
-			if (!mg.ok) throw new Error(mg.text);
-			if (await mergeInProgress(wt)) throw new Error(`${mg.id} left the merge unfinished`);
-			await commitAll(wt, `${subject} (merge fixes)`);
-			if (!(await isAncestor(wt.path, head, "HEAD"))) throw new Error(`${mg.id} didn't merge ${head.slice(0, 8)}`);
-			wt.base = head;
-		}
-		throw new Error(`${wt.target} kept moving (${MERGE_ATTEMPTS} merges)`);
 	}
 
 	function prune() {
@@ -843,27 +351,16 @@ export default function (pi: ExtensionAPI) {
 
 	function dispatch(
 		ctx: ExtensionContext,
-		p: {
-			description: string;
-			prompt: string;
-			personality?: string;
-			readonly?: boolean;
-			background?: boolean;
-			tests?: boolean;
-			stageOf?: string;
-			cwd?: string;
-			worktree?: Worktree;
-		},
+		p: { description: string; prompt: string; personality?: string; readonly?: boolean; background?: boolean; cwd?: string },
 	): Run {
-		const all = loadPersonalities(getAgentDir(), ctx.cwd, ctx.isProjectTrusted());
 		let persona: Personality | undefined;
 		if (p.personality) {
+			const all = loadPersonalities(getAgentDir(), ctx.cwd, ctx.isProjectTrusted());
 			persona = all.get(p.personality);
 			if (!persona) throw new Error(`unknown personality "${p.personality}"; available: ${[...all.keys()].join(", ") || "none"}`);
-		} else if (!p.readonly) {
-			// May edit files: route through the default personality (implementer), if there is one.
-			persona = [...all.values()].find((x) => x.default);
 		}
+		const cwd = p.cwd ? resolve(ctx.cwd, p.cwd) : ctx.cwd;
+		if (!existsSync(cwd) || !statSync(cwd).isDirectory()) throw new Error(`cwd ${cwd} is not a directory`);
 		const model = resolveModel(ctx, persona?.model);
 		if (!model) throw new Error("no model selected");
 		const id = `a${nextId++}`;
@@ -882,25 +379,14 @@ export default function (pi: ExtensionAPI) {
 			done: Promise.resolve(),
 			claimed: !p.background,
 			listeners: new Set(),
-			persona,
-			spec: p.prompt,
-			stageOf: p.stageOf,
-			tests: p.tests,
-			log: [],
-			cwd: p.cwd ?? ctx.cwd,
-			isolate: !p.readonly && !p.stageOf,
-			wt: p.worktree,
+			cwd,
 		};
 		runs.set(id, run);
-		run.done = work(ctx, run, p.prompt, () => startChild(ctx, run, persona, model)).finally(() => deliver(run));
+		run.done = cycle(run, p.prompt, () => startChild(ctx, run, persona, model)).finally(() => deliver(run));
 		return run;
 	}
 
 	function stop(run: Run) {
-		if (run.stage) {
-			run.halt = true;
-			if (run.helper) stop(run.helper);
-		}
 		if (run.status === "queued") {
 			run.status = "stopped";
 			run.unqueue?.();
@@ -913,24 +399,13 @@ export default function (pi: ExtensionAPI) {
 	function report(run: Run): string {
 		const tags = [run.id, run.description, run.personality, `${run.status} after ${elapsed(run)}`, `${run.toolCalls} tool calls`];
 		let body =
-			run.stage && run.status === "done"
-				? `Implementation finished; still in ${run.stage}${run.helper ? ` by ${run.helper.id}` : ""}. Its report so far:\n${run.result ?? ""}`
-				: run.status === "done"
+			run.status === "done"
 				? (run.result ?? "")
 				: run.status === "failed"
 					? `Error: ${run.error}`
 					: run.status === "stopped"
 						? `Stopped.${run.session?.getLastAssistantText() ? ` Last message:\n${run.session.getLastAssistantText()}` : ""}`
 						: `Still ${run.status}${run.activity ? ` (${run.activity})` : ""}.`;
-		for (const entry of run.log) body += `\n\n## ${entry.title}\n${entry.text}`;
-		const wt = run.wt;
-		if (wt && !run.stageOf && !run.stage) {
-			body += "\n\n## Merge-back\n";
-			if (wt.merged === "nothing to merge") body += "No changes to merge; the worktree is removed.";
-			else if (wt.merged) body += `Merged: ${wt.target} fast-forwarded to ${wt.merged}; the worktree and branch are removed.`;
-			else body += `Not merged. The work is on branch ${wt.branch}, in the worktree ${wt.path}.`;
-			for (const note of wt.notes) body += `\n${note}`;
-		}
 		if (body.length > RESULT_CAP) {
 			const path = join(run.dir, "result.md");
 			writeFileSync(path, body);
@@ -1036,7 +511,7 @@ export default function (pi: ExtensionAPI) {
 
 	/** Status for a background agent's call line: spinner and shimmer while it runs, then the outcome. */
 	function backgroundStatus(run: Run, live: boolean, theme: any): string {
-		if (live) return `${spinner()} ${shimmer(run.stage ?? (run.status === "queued" ? "queued" : "background"))}`;
+		if (live) return `${spinner()} ${shimmer(run.status === "queued" ? "queued" : "background")}`;
 		const color = run.status === "done" ? "success" : run.status === "failed" ? "error" : "warning";
 		return `${theme.fg(color, statusIcon(run))} ${theme.fg("dim", run.status)}`;
 	}
@@ -1051,7 +526,7 @@ export default function (pi: ExtensionAPI) {
 			"conversation. Its final message is returned to you (not shown to the user).",
 			"The prompt must be self-contained: goal, relevant paths and facts, constraints, and what to hand back.",
 			"background: true returns an id at once; the result arrives later as a message, or call agent_wait.",
-			"readonly: true forbids file edits. personality picks a preset (listed in the system prompt).",
+			"readonly: true forbids file edits. cwd runs it in another directory. personality picks a preset (listed in the system prompt).",
 		].join(" "),
 		promptSnippet: "Hand a task to a subagent with a fresh context; get back its final message",
 		parameters: Type.Object({
@@ -1060,9 +535,7 @@ export default function (pi: ExtensionAPI) {
 			personality: Type.Optional(Type.String({ description: "Personality name; omit for a general agent" })),
 			background: Type.Optional(Type.Boolean({ description: "Run without blocking (default false)" })),
 			readonly: Type.Optional(Type.Boolean({ description: "Forbid file modifications (default false)" })),
-			tests: Type.Optional(
-				Type.Boolean({ description: "Code changes: have a separate agent write tests for the change before review (default false)" }),
-			),
+			cwd: Type.Optional(Type.String({ description: "Absolute directory the agent works in, e.g. a git worktree (default: this session's)" })),
 		}),
 		async execute(toolCallId, params, signal, onUpdate, ctx) {
 			lastCtx = ctx;
@@ -1112,7 +585,7 @@ export default function (pi: ExtensionAPI) {
 			lastCtx = ctx;
 			const targets: Run[] = params.ids?.length
 				? params.ids.map(getRun)
-				: [...runs.values()].filter((r) => !r.stageOf && (isLive(r) || !r.claimed));
+				: [...runs.values()].filter((r) => isLive(r) || !r.claimed);
 			if (!targets.length) return { content: [{ type: "text", text: "No agents to wait for." }], details: undefined };
 			for (const r of targets) {
 				r.claimed = true;
@@ -1174,14 +647,11 @@ export default function (pi: ExtensionAPI) {
 				return { content: [{ type: "text", text: `Sent to ${run.id}; it sees the message after its current step.` }], details: undefined };
 			}
 			if (run.status === "queued") throw new Error(`${run.id} has not started yet`);
-			if (run.stage) throw new Error(`${run.id} is in ${run.stage}; wait for it (agent_wait) or stop it first`);
-		if (run.wt?.merged && !run.stageOf) throw new Error(`${run.id}'s work is merged and its worktree removed; dispatch a new agent`);
 			if (run.expired) throw new Error(`${run.id}'s session was closed to free resources; dispatch a new agent`);
 			if (!run.session) throw new Error(`${run.id} never started (${run.error ?? run.status}); dispatch a new agent`);
 			run.claimed = !params.background;
 			pending.delete(run);
-			run.spec += `\n\n## Follow-up instructions\n${params.message}`;
-			run.done = work(ctx, run, params.message).finally(() => deliver(run));
+			run.done = cycle(run, params.message).finally(() => deliver(run));
 			blocks.set(toolCallId, { run, done: run.done });
 			if (params.background) {
 				return { content: [{ type: "text", text: `Continuing ${run.id} in the background.` }], details: undefined };
@@ -1285,7 +755,6 @@ export default function (pi: ExtensionAPI) {
 		lastCtx = ctx;
 		const personas = [...loadPersonalities(getAgentDir(), ctx.cwd, ctx.isProjectTrusted()).values()];
 		const n = maxConcurrency(ctx.model?.provider ?? "");
-		const def = personas.find((p) => p.default);
 		event.systemPromptOptions.sections.subagents = [
 			"## Subagents",
 			"",
@@ -1298,31 +767,13 @@ export default function (pi: ExtensionAPI) {
 			"  and what to hand back (a short answer, a summary of changes, or a report file).",
 			"- For independent tasks, start several with `background: true` in one turn, then call `agent_wait`, or",
 			`  keep working and handle results as they arrive. Up to ${n} run at once on this endpoint; more queue.`,
-			"- Use `readonly: true` for research. Split code changes so parallel agents touch different files;",
-			"  overlapping edits still merge, but through conflict resolution.",
-			...(def
-				? [
-						`- Code changes: an agent that may edit files and names no personality runs as \`${def.name}\`.${def.then ? ` When it finishes, a fresh \`${def.then}\` agent reviews the change against your prompt; on a failed review a fresh \`${def.name}\` fixes the findings and a fresh reviewer checks again (up to ${def.rounds ?? DEFAULT_ROUNDS} reviews).` : ""}`,
-						"  With `tests: true`, a fresh test-writing agent adds tests before the review; ask for it when the",
-						"  change has behavior worth pinning down and the project has a test suite.",
-						"  So write the prompt as a precise spec (what to change, where, constraints, how to verify), and set",
-						"  `readonly: true` on every agent that shouldn't change files.",
-					]
-				: []),
-			"- In a git repository, every agent that may edit files works in its own git worktree, branched from",
-			"  the current HEAD, so editing agents can run in parallel without clashing. Uncommitted changes in the",
-			"  main checkout are not in that worktree; commit them first (with the user's OK) if an agent needs them.",
-			"  When the work passes review it is committed and merged back: the current branch is fast-forwarded to",
-			"  it (after a merge agent merges the branch's new commits into the work, if it moved; one merge-back",
-			"  at a time per repository, across pi processes). The report says whether it merged or which",
-			"  branch and worktree hold it. Run the checks yourself afterwards if several merges landed.",
+			"- Use `readonly: true` for research. `cwd` runs an agent in another directory, such as a git worktree.",
+			"- An agent that may edit files works directly in its `cwd`. For code changes in a git repository, use",
+			"  the `implement` skill (`/implement`): each change gets its own worktree and goes through",
+			"  implement, test, review and merge-back stages. Never run parallel editing agents in one checkout.",
 			"- `agent_send` steers a running agent or continues a finished one with its context intact.",
 			...(personas.length
-				? [
-						"",
-						"Personalities (`personality` argument):",
-						...personas.map((p) => `- ${p.name}: ${p.description}${p.then ? ` (reviewed by ${p.then})` : ""}`),
-					]
+				? ["", "Personalities (`personality` argument):", ...personas.map((p) => `- ${p.name}: ${p.description}`)]
 				: []),
 		].join("\n");
 	});

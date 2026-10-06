@@ -25,14 +25,14 @@ export function elapsed(run: Run): string {
 
 const ICON: Record<Run["status"], string> = { queued: "…", running: "⏳", done: "✓", failed: "✗", stopped: "■" };
 
-/** Queued, running, or done but still in a review pipeline (`stage`). */
+/** Queued or running. */
 export function isLive(run: Run): boolean {
-	return run.status === "queued" || run.status === "running" || !!run.stage;
+	return run.status === "queued" || run.status === "running";
 }
 
 /** `animate`: a working agent gets the colored spinner instead of a static glyph. */
 export function statusIcon(run: Run, animate = false): string {
-	return animate && (run.status === "running" || run.stage) ? spinner() : ICON[run.status];
+	return animate && run.status === "running" ? spinner() : ICON[run.status];
 }
 
 function count(n: number): string {
@@ -73,7 +73,6 @@ export function oneLine(run: Run, animate = false): string {
 export function lineBody(run: Run): string {
 	const who = run.personality ? `${run.id} ${run.personality}` : run.id;
 	const parts = [who, run.description, `${run.toolCalls} tools`, usage(run), elapsed(run)].filter(Boolean);
-	if (run.stage) parts.push(`${run.stage}${run.helper ? ` (${run.helper.id})` : ""}`);
 	if (run.status === "running" && run.activity) parts.push(run.activity);
 	return parts.join(" · ");
 }
