@@ -56,6 +56,17 @@ manifest() {
   entry agents/AGENTS.md          "$HOME/.claude/CLAUDE.md"
   entry claude/settings.json      "$HOME/.claude/settings.json"
 
+  # Shared agent skills (ai/skills/<name>/SKILL.md). pi reads the whole dir as
+  # ~/.agents/skills. Claude Code keeps its own synced/ dir in ~/.claude/skills,
+  # so each skill is linked there one by one.
+  entry ai/skills                 "$HOME/.agents/skills"
+  local skill
+  for skill in "$DOTFILES"/ai/skills/*/; do
+    [[ -d $skill ]] || continue
+    skill="${skill%/}"; skill="${skill##*/}"
+    entry "ai/skills/$skill"      "$HOME/.claude/skills/$skill"
+  done
+
   # pi (see pi/README.md). settings.json is rewritten by pi, so it's merged;
   # the filter drops the package entry of the retired ~/dev/pi-harness repo.
   local pi_dir="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"

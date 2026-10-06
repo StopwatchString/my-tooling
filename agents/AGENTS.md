@@ -21,3 +21,10 @@ Project-level AGENTS.md / CLAUDE.md files take precedence for project specifics.
 - Run the relevant checks before calling work done.
 - Commit only when told (a repo's own AGENTS.md may grant standing
   permission). Never push unless asked.
+
+## Skills
+
+- Shared skills live in `my-tooling/ai/skills/` and are linked for both
+  Claude Code and pi.
+- Before writing, editing, reviewing, or planning any C++ code (`.h`, `.hpp`,
+  `.cpp`, `.cc`, `.cxx`), load the `cpp-style-guide` skill.

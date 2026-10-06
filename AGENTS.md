@@ -38,6 +38,9 @@ lang/clangd/config.yaml   -> clangd user config (path differs per OS)
 agents/AGENTS.md      Global agent instructions -> ~/.claude/CLAUDE.md
                       and ~/.pi/agent/AGENTS.md (one file, two agents)
 claude/settings.json  -> ~/.claude/settings.json
+ai/skills/            Agent skills shared by both harnesses: the dir ->
+                      ~/.agents/skills (pi), each skill ->
+                      ~/.claude/skills/<name> (Claude Code)
 pi/                   pi coding agent config (formerly ~/dev/pi-harness); see
                       pi/README.md. extensions/ agents/ skills/ prompts/ themes/
                       keybindings.json mcp.json APPEND_SYSTEM.md are linked into
