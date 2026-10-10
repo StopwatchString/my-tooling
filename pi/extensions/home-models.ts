@@ -3,7 +3,8 @@
  *
  * - Provider `home`: the server's live model list from `/v1/models`, or a
  *   built-in copy of it when the server can't be reached at startup. Today
- *   that is one model, `swift`, with a copy on each GPU behind one endpoint.
+ *   that is two models: `swift` (long context, the Swift fine-tune) and
+ *   `megacapybara-agentic` (up to 12 agents at once on one card).
  * - Event `before_agent_start`: adds a short `home_models` prompt section
  *   saying what the models are for and how many requests run at once.
  *
@@ -43,6 +44,17 @@ const FALLBACK: ServerModel[] = [
 		max_model_len: 262144,
 		max_concurrency: 2,
 		copies: 2,
+		input: ["text", "image"],
+		thinking: "effort",
+		sampling: SAMPLING,
+	},
+	{
+		id: "megacapybara-agentic",
+		description: "MegaCapybara - Qwen3.8-27B Large (MXFP6), 12 agents sharing a 204K context pool, vision, DFlash2",
+		use: "Many parallel agents (up to 12 at once) with small to medium contexts. Not the Swift fine-tune; for one long task (over 200K) use swift.",
+		max_model_len: 203776,
+		max_concurrency: 12,
+		copies: 1,
 		input: ["text", "image"],
 		thinking: "effort",
 		sampling: SAMPLING,

@@ -63,6 +63,32 @@ pi() {
   command pi "$@"
 }
 
+# Switch what the home model server (socrates, ~/serve/ai) has loaded, from any
+# machine: runs its `ai` CLI over ssh (locally on socrates itself). Modes:
+#   swift    swift on both GPUs (the default, as at boot)
+#   mixed    swift on GPU 0, megacapybara-agentic (12 agents) on GPU 1
+#   agents   megacapybara-agentic on both GPUs (24 agents)
+#   status   what is loaded (also with no mode)
+# Override the host with AI_HOST (an ssh alias) in ~/.config/shell/local.sh.
+ai-mode() {
+  local host="${AI_HOST:-socrates}" cmd
+  case "${1:-status}" in
+    swift) cmd="start" ;;
+    mixed) cmd="use swift@0 megacapybara-agentic@1" ;;
+    agents) cmd="use megacapybara-agentic megacapybara-agentic" ;;
+    status) cmd="status" ;;
+    *)
+      echo "usage: ai-mode [swift|mixed|agents|status]" >&2
+      return 1
+      ;;
+  esac
+  if [ "$(hostname -s)" = "$host" ]; then
+    eval "\"\$HOME/.local/bin/ai\" $cmd"
+  else
+    ssh "$host" "~/.local/bin/ai $cmd"
+  fi
+}
+
 # Inside tmux, take SSH_AUTH_SOCK / SSH_CONNECTION from the session, which tmux
 # updates from whichever client attached last (local or over ssh). Run before
 # every prompt in tmux by bashrc/zshrc, so agent forwarding keeps working

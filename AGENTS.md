@@ -232,7 +232,8 @@ Caveats / open items:
 - Don't put machine-specific config (hardware, local services) in this
   repo; it targets several machines. Exception: the LAN-wide home model
   server in `pi/extensions/home-models.ts` and its search and code-search MCP servers in
-  `pi/mcp.json` (key read from 1Password into `$HOME_AI_KEY` by the `pi` shell function).
+  `pi/mcp.json` (key read from 1Password into `$HOME_AI_KEY` by the `pi` shell function),
+  and the `ai-mode` shell function that switches its loaded models over ssh.
 - `agents/AGENTS.md` is a starter. Grow it with real preferences.
 - The macOS path has only been exercised with a stubbed `uname`, never on a
   real Mac.
