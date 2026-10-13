@@ -12,13 +12,13 @@
  * fills it from 1Password (op://Personal/home-ai-server/credential) for each
  * run; it is never stored in a file on client machines. On socrates the
  * server's own ~/serve/ai/.env is used. $HOME_AI_URL overrides the default
- * http://192.168.0.41:8000.
+ * https://ai.lab.masonspeck.com (Caddy on OPNsense in front of socrates:8000).
  */
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-const URL_DEFAULT = "http://192.168.0.41:8000";
+const URL_DEFAULT = "https://ai.lab.masonspeck.com";
 
 type ServerModel = {
 	id: string;

@@ -7,12 +7,12 @@
 Include ~/.ssh/config.local
 
 Host plato
-  HostName 192.168.0.40
+  HostName plato.lab.masonspeck.com
   User mspeck
   ForwardAgent yes
 
 Host socrates
-  HostName 192.168.0.41
+  HostName socrates.lab.masonspeck.com
   User mspeck
   ForwardAgent yes
 

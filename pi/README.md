@@ -57,8 +57,8 @@ servers every machine should have here.
 
 | Server | What |
 |---|---|
-| `home-search` | Web search on the home server (socrates, `~/serve/search`: SearXNG + mcp-searxng) at `http://192.168.0.41:8090/mcp`. `searxng_web_search` and `web_url_read` are `direct` tools; the other two are hidden. Bearer key `$HOME_AI_KEY`, the same one as `home-models.ts`. Unlike the router, it needs the key on socrates too: `~/.config/shell/local.sh` there exports it from `~/serve/ai/.env`. Check with `pi mcp list`. |
-| `sourcebot` | Code search on the home server (socrates, `~/serve/sourcebot`) at `http://192.168.0.41:3000/api/mcp`: grep/search over the indexed repos, file reads, symbol navigation, `ask_codebase` (answered by the router's model). Same `$HOME_AI_KEY`, sent as `Bearer sbk_${HOME_AI_KEY}` (Sourcebot API keys need the `sbk_` prefix); `~/serve/sourcebot/register-home-ai-key.sh` registers it there. |
+| `home-search` | Web search on the home server (socrates, `~/serve/search`: SearXNG + mcp-searxng) at `https://search.lab.masonspeck.com/mcp`. `searxng_web_search` and `web_url_read` are `direct` tools; the other two are hidden. Bearer key `$HOME_AI_KEY`, the same one as `home-models.ts`. Unlike the router, it needs the key on socrates too: `~/.config/shell/local.sh` there exports it from `~/serve/ai/.env`. Check with `pi mcp list`. |
+| `sourcebot` | Code search on the home server (socrates, `~/serve/sourcebot`) at `https://code.lab.masonspeck.com/api/mcp`: grep/search over the indexed repos, file reads, symbol navigation, `ask_codebase` (answered by the router's model). Same `$HOME_AI_KEY`, sent as `Bearer sbk_${HOME_AI_KEY}` (Sourcebot API keys need the `sbk_` prefix); `~/serve/sourcebot/register-home-ai-key.sh` registers it there. |
 
 ## Contents
 
@@ -101,7 +101,7 @@ servers every machine should have here.
     reads from 1Password (`op://Personal/home-ai-server/credential`, override
     with `HOME_AI_KEY_REF`) for each run, so client machines need only the
     `op` CLI, signed in. `HOME_AI_URL` overrides the default
-    `http://192.168.0.41:8000`. socrates itself needs neither.
+    `https://ai.lab.masonspeck.com` (LAN or WireGuard). socrates itself needs neither.
   - `exit.ts`: `/exit` command (clean shutdown via `ctx.shutdown()`)
   - `compact-tools.ts`: compact renderers for the built-in tools — bash and read
     collapse to one line (Ctrl+O expands, first 20 lines), edit shows the full

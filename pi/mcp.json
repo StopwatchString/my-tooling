@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "home-search": {
-      "url": "http://192.168.0.41:8090/mcp",
+      "url": "https://search.lab.masonspeck.com/mcp",
       "headers": { "Authorization": "Bearer ${HOME_AI_KEY}" },
       "description": "Web search (SearXNG on the home server) and reading web pages as Markdown",
       "exposure": "direct",
@@ -11,7 +11,7 @@
       }
     },
     "sourcebot": {
-      "url": "http://192.168.0.41:3000/api/mcp",
+      "url": "https://code.lab.masonspeck.com/api/mcp",
       "headers": { "Authorization": "Bearer sbk_${HOME_AI_KEY}" },
       "description": "Sourcebot code search on the home server: grep and search the indexed repos, read files, navigate symbols, and ask natural-language questions about the code (ask_codebase, answered by the local LLM)",
       "exposure": "direct",
