@@ -9,12 +9,13 @@
  *
  * user@host:dir is styled like the zsh prompt (shell/zsh/p10k.zsh). The
  * thinking level is shown only for models that reason. ctx turns yellow from
- * 70% and red from 90%. Statuses set by extensions (ctx.ui.setStatus) go on
- * a second line, as in pi's footer.
+ * 70% and red from 90%. The status keyed `mode` (`modes.ts`) goes at the
+ * right of the line; other statuses set by extensions (ctx.ui.setStatus) go
+ * on a second line, as in pi's footer.
  */
 import { homedir, hostname, userInfo } from "node:os";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { truncateToWidth } from "@earendil-works/pi-tui";
+import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
 // The zsh prompt's colors: bold green user@host, grey colon, bold blue dir.
 const GREEN = "\x1b[1;32m";
@@ -52,8 +53,17 @@ export default function (pi: ExtensionAPI) {
 						const color = percent >= 90 ? "error" : percent >= 70 ? "warning" : undefined;
 						parts.push(`ctx ${color ? theme.fg(color, value) : value}`);
 					}
-					const lines = [parts.join(sep)];
-					const statuses = [...footerData.getExtensionStatuses().entries()]
+					const all = footerData.getExtensionStatuses();
+					const mode = all.get("mode")?.replace(/[\r\n\t]+/g, " ");
+					let first = parts.join(sep);
+					if (mode) {
+						const room = width - visibleWidth(mode) - 2;
+						first = room > 10 ? truncateToWidth(first, room, theme.fg("dim", "...")) : "";
+						first += " ".repeat(Math.max(1, width - visibleWidth(first) - visibleWidth(mode))) + mode;
+					}
+					const lines = [first];
+					const statuses = [...all.entries()]
+						.filter(([key]) => key !== "mode")
 						.sort(([a], [b]) => a.localeCompare(b))
 						.map(([, text]) => text.replace(/[\r\n\t]+/g, " "));
 					if (statuses.length > 0) lines.push(statuses.join(" "));

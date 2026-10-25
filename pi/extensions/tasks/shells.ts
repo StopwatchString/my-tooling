@@ -136,6 +136,8 @@ export function registerShells(pi: ExtensionAPI, session: () => { owner: string;
 
 	pi.registerTool({
 		name: "bash_output",
+		// Lets read-only mode (modes.ts) allow it; never sent to the model.
+		annotations: { readOnlyHint: true },
 		label: "bash output",
 		description:
 			"Output a background shell has printed since the last bash_output call for it, with its status and exit code.",

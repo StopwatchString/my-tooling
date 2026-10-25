@@ -84,6 +84,8 @@ export default function (pi: ExtensionAPI) {
 
 	pi.registerTool({
 		name: "task_log",
+		// Lets read-only mode (modes.ts) allow it; never sent to the model.
+		annotations: { readOnlyHint: true },
 		label: "task log",
 		description:
 			"The record of a background shell or agent, also after it was stopped, or interrupted by a restart: a shell's command, status and output; an agent's conversation (your messages to it, its replies, and its tool calls with their results, shortened).",
@@ -118,6 +120,8 @@ export default function (pi: ExtensionAPI) {
 
 	pi.registerTool({
 		name: "task_list",
+		// Lets read-only mode (modes.ts) allow it; never sent to the model.
+		annotations: { readOnlyHint: true },
 		label: "task list",
 		description: "List the background shells and agents of this session, with their ids and status.",
 		promptSnippet: "List background shells and agents",

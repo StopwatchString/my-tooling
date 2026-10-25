@@ -82,8 +82,9 @@ servers every machine should have here.
   remove built-ins)
 - `extensions/footer.ts`: replaces pi's two-line footer with one line in the
   style of the Claude Code status line: `user@host:dir` (zsh prompt colors),
-  the model with its thinking level, and context fill (`ctx 8%`). Extension
-  statuses still get a second line.
+  the model with its thinking level, and context fill (`ctx 8%`). The
+  permission mode (`modes.ts`) sits at the right; other extension statuses
+  still get a second line.
 - `extensions/editor.ts`: the input box in the style of Claude Code's prompt:
   grey rules above and below (instead of rules coloured by thinking level)
   and a `>` before the text. In bash mode (`!`), the rules and the `>` take the
@@ -117,6 +118,28 @@ servers every machine should have here.
 - `extensions/assistant-message.ts`: a `⏺` before each block of assistant
   text, like tool calls. pi has no hook for this, so it patches the exported
   `AssistantMessageComponent` (check after a pi upgrade).
+- `extensions/modes.ts`: permission modes like Claude Code's, cycled with
+  shift+tab (which no longer cycles the thinking level) or set with `/mode`,
+  and shown at the right of the footer:
+  - `⏸ read-only` (lavender): only tools that read or look things up. A tool
+    counts when its `readOnlyHint` annotation says so: MCP servers declare it
+    per tool (all of home-search's, and sourcebot's except `create_skill` and
+    `update_skill`), and our own tools set it where they register
+    (`bash_output`, `task_log`, `task_list`). pi's built-in readers (read,
+    grep, find, ls) carry no hints and are listed in `READ_TOOLS`, with the
+    tools that only run other tools (agent, codemode, tool_search), whose
+    calls are checked too. `READ_ONLY_OVERRIDES` corrects a server's hints,
+    per server or tool. Anything else is blocked: bash, edit, write,
+    task_stop. Annotations are never sent to the model, so this costs no
+    context.
+  - `⏵⏵ safe` (yellow, Claude Code's auto mode): every tool call goes to a
+    model first, with the user's latest messages, and runs only if it answers
+    ALLOW; a block reason goes back to the agent. If the check fails, pi asks
+    you. `/safe-model` picks the checking model from pi's models (default: the
+    session's); the choice is saved in `~/.pi/agent/modes.json`.
+  - `⏵⏵ unsafe` (red): stock pi, nothing checked. Every start begins here.
+  The mode applies to subagents too, survives `/reload`, and is added to the
+  system prompt in read-only and safe mode.
 - `extensions/tasks/`: background shells and subagents, in the style of Claude
   Code. While one runs, the model ends its turn, and a message with the result
   starts its next turn when the task ends.
@@ -163,7 +186,7 @@ servers every machine should have here.
 Everything else is pi's stock behavior.
 
 Not tracked (machine-local or secret, stay in `~/.pi/agent/`): `auth.json`,
-`models.json`, `models-store.json`, `trust.json`, `sessions/`, `bin/`, `install/`.
+`models.json`, `models-store.json`, `trust.json`, `modes.json`, `sessions/`, `bin/`, `install/`.
 
 ## Development
 

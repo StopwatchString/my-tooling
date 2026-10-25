@@ -70,6 +70,37 @@ pi -p --no-session "reply: ok"                                      # full setup
 
 After the checks pass, ask the user to `/reload` and try the feature themselves.
 
+## Notes for picking this up
+
+The Claude Code look and the agent features (`tools.ts`, `tasks/`,
+`modes.ts`, ...) are described in each extension's header and in
+`README.md`. What isn't written there:
+
+- **Test in a live TUI, in tmux.** The print-mode checks above only prove
+  an extension loads. For anything visual or interactive, make a scratch
+  agent dir (settings.json with the theme and models, `extensions/` holding
+  symlinks to this repo's files) and run
+  `tmux new-session -d -s pitest -x 130 -y 45 "PI_CODING_AGENT_DIR=<dir> pi"`.
+  Then drive it with `tmux send-keys` (`BTab` is shift+tab) and read it with
+  `tmux capture-pane -p` (`-e` keeps colours). The symlinks are live, so
+  `/reload` picks up edits. Kill the session when done.
+- **Patched pi internals:** `user-message.ts`, `assistant-message.ts` and
+  `working.ts` patch exported component prototypes; `tasks/shells.ts`
+  replaces the built-in `bash` tool. Recheck them after a pi upgrade.
+- **Keys taken from pi:** shift+tab (`modes.ts`, was thinking-level cycling)
+  and ↓ in an empty prompt (`tasks/`). Both use `ctx.ui.onTerminalInput`, not
+  `registerShortcut`, so pi prints no conflict warning.
+- **Shared state** lives on `globalThis` under `Symbol.for("my-tooling.*")`
+  keys (`tasks.registry`, `modes`), so it survives `/reload` and subagent
+  sessions (which load the same extensions in-process) share it.
+- **Cross-extension contract:** `footer.ts` puts the status keyed `mode`
+  at the right of its line; `modes.ts` sets it.
+- **Colours copied from Claude Code** (themes, diff palette in `tools.ts`)
+  were read out of its binary (`strings` on `~/.local/share/claude/versions/*`);
+  do the same when matching something new rather than guessing.
+- **Open ideas:** safe mode checks read-only calls too (slower; Claude Code
+  skips them); read-only mode blocks all bash, even read-only commands.
+
 ## Git
 
 Small, focused commits with imperative subjects ("Add /exit command extension").
