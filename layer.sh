@@ -124,13 +124,11 @@ link_each ai/skills "$HOME/.claude/skills"
 
 # pi (see pi/README.md). The filter drops the package entry of the retired
 # ~/dev/pi-harness repo.
-block "$PI_DIR/APPEND_SYSTEM.md" top html render_concat pi/APPEND_SYSTEM.md '<!-- from %s -->'
-json pi/keybindings.json "$PI_DIR/keybindings.json"
 json pi/mcp.json         "$PI_DIR/mcp.json"
 json pi/settings.json    "$PI_DIR/settings.json" \
   'if .packages then .packages |= map(select(tostring | test("pi-harness") | not))
      | if .packages == [] then del(.packages) else . end else . end'
-for _d in extensions agents skills prompts themes; do
+for _d in extensions skills; do
   link_each "pi/$_d" "$PI_DIR/$_d"
 done
 unset _d

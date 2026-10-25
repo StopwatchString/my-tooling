@@ -112,9 +112,8 @@ the host) overrides a lower one.
 | `claude/settings.json` | `~/.claude/settings.json` | deep-merged JSON |
 | `ai/skills/<name>/` | `~/.agents/skills/<name>`, `~/.claude/skills/<name>` | one link per item; same name → later wins + `WARN` |
 | `pi/extensions/<item>` | `~/.pi/agent/extensions/<item>` | one link per item; same name → later wins + `WARN` |
-| `pi/agents/<item>`, `pi/skills/<item>`, `pi/prompts/<item>`, `pi/themes/<item>` | `~/.pi/agent/<dir>/<item>` | one link per item |
-| `pi/APPEND_SYSTEM.md` | `~/.pi/agent/APPEND_SYSTEM.md` | contents concatenated in order |
-| `pi/settings.json`, `pi/mcp.json`, `pi/keybindings.json` | `~/.pi/agent/…` | deep-merged JSON |
+| `pi/skills/<item>` | `~/.pi/agent/skills/<item>` | one link per item |
+| `pi/settings.json`, `pi/mcp.json` | `~/.pi/agent/…` | deep-merged JSON |
 
 VS Code paths are under `~/.config/Code/User` on Linux and
 `~/Library/Application Support/Code/User` on macOS. clangd's are
@@ -131,8 +130,8 @@ starting with `.` (e.g. `.gitkeep`) are ignored.
   to your files take effect in the next shell or editor without re-running
   setup. Adding a *new* file at a conventional path needs no setup run
   either, except for collection items, which need a link (run setup).
-- **Copied** (`agents/AGENTS.md`, `ghostty/config`, `pi/APPEND_SYSTEM.md`,
-  clangd): re-run `./setup.sh` after editing. `-s` shows `DIFF` until then.
+- **Copied** (`agents/AGENTS.md`, `ghostty/config`, clangd): re-run
+  `./setup.sh` after editing. `-s` shows `DIFF` until then.
 - **Merged JSON**: objects merge recursively, later layer wins per key. An
   array *inside* an object is replaced whole. A top-level array (VS Code
   keybindings) gets entries appended. A `null` value deletes the key, so a
@@ -354,7 +353,7 @@ Exit status is non-zero when there were problems (`MISSING`, `BAD`,
   rebind freely.
 - `~/.bash_profile` gets a block that sources `~/.bashrc`. A login bash then
   skips `~/.profile` (as before layering).
-- Files the base copies (AGENTS.md, ghostty, APPEND_SYSTEM.md) need a setup
+- Files the base copies (AGENTS.md, ghostty) need a setup
   run after edits. Linked, included and sourced ones don't.
 - Don't write into `~/.config/dotfiles/build/` or inside a managed block.
   Both are regenerated.

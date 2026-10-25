@@ -15,11 +15,8 @@ Formerly the separate `~/dev/pi-harness` repo, which is retired.
 
 | Repo path | In `~/.pi/agent/` | How |
 |---|---|---|
-| `extensions/`, `skills/`, `prompts/`, `themes/` | same names | real dirs; each item symlinked; pi auto-loads them |
-| `agents/` | `agents` | same; subagent personalities (read by `extensions/agent/`) |
-| `keybindings.json` | `keybindings.json` | **merged** (empty for now; see pi's `docs/keybindings.md`) |
+| `extensions/`, `skills/` | same names | real dirs; each item symlinked; pi auto-loads them |
 | `mcp.json` | `mcp.json` | **merged**; pi's built-in MCP servers (see below) |
-| `APPEND_SYSTEM.md` | `APPEND_SYSTEM.md` | copied into a managed block; pi-only instructions appended to the system prompt |
 | `../agents/AGENTS.md` | `AGENTS.md` | copied into a managed block; shared with Claude Code |
 | `settings.json` | `settings.json` | **merged** (see below) |
 
@@ -32,7 +29,7 @@ After changing anything, run `/reload` in pi (or restart it).
 ### Settings
 
 pi rewrites `~/.pi/agent/settings.json` itself (package list, changelog
-version, Ctrl+T toggling `hideThinkingBlock`, ...), so it is merged, not linked.
+version, ...), so it is merged, not linked.
 `settings.json` here holds the intended values; `./setup.sh` merges them into
 the live file (repo wins for those keys, everything else is left alone) and
 drops the old `pi-harness` package entry. `./setup.sh -s` reports `DIFF` when
@@ -42,8 +39,6 @@ the live file has drifted.
 |---|---|---|
 | `defaultProvider` | `home` | start on the home model server (`home-models.ts`) |
 | `defaultModel` | `swift` | its primary model |
-| `hideThinkingBlock` | `true` | hide thinking in the transcript (`thinking-tokens.ts` removes the lines and puts the estimate in the working row; Ctrl+T toggles) |
-| `subagents.maxConcurrency` | `{ "default": 3 }` | subagents running at once, per model provider; add `"<provider>": n` for another endpoint (`extensions/agent/`). Read by the extension, not pi; `$PI_AGENT_MAX_CONCURRENCY` overrides the default |
 
 To try a value without committing, edit the live file directly.
 
@@ -62,69 +57,21 @@ servers every machine should have here.
 
 ## Contents
 
-- `extensions/`
-  - `agent/`: subagents, in-process like Claude Code's. Tool `agent` hands a
-    task (description + self-contained prompt) to a fresh session with the same
-    tools and model; its final message comes back as the tool result.
-    `background: true` returns an id at once and the result later arrives as
-    an `agent-result` message that starts a turn once the main session is
-    idle; `agent_wait` blocks on background agents instead (a result is
-    delivered only once either way). A message from the user ends a wait
-    early: `agent_wait` returns what has finished and a foreground agent moves
-    to the background (Ctrl+C still stops it). `agent_send` steers a running agent or
-    continues a finished one with its context; `agent_stop` aborts.
-    `readonly: true` drops edit/write; `cwd` runs the agent in another
-    directory (the `implement` skill points it at a git worktree);
-    `personality` picks a file from `agents/`. An editing agent works
-    directly in its `cwd`: worktrees, review loops and merge-back for code
-    changes live in the shared `implement` skill (`ai/skills/implement/`,
-    `/implement`), not here. A `subagents` system-prompt section tells the model when to
-    delegate (it does so on its own when asked for agents, parallel work, or
-    broad searches) and lists the personalities. Children load the normal
-    extensions, MCP and tool search, but not `agent/` itself (no nesting);
-    they queue per provider over `subagents.maxConcurrency`. `/agents [id]`
-    or Alt+A opens the agent switcher: a tab per agent (←/→ or click to
-    switch) over its full live transcript; `e` shows full tool output, `s`
-    stops the agent. Clicking an agent's tool block (or Ctrl+O) expands it to
-    a live tail of the last 30 transcript lines. A widget shows the active ones
-    with tool calls, tokens in/out and context fill. Running agents get a
-    spinner cycling through the pi logo colors (`shimmer.ts`), in the widget
-    and on their tool blocks.
-    Transcripts and reports go to `$TMPDIR/pi-agents/<session>/<id>/`. The 8
-    most recent finished agents stay open for `agent_send`.
-  - `home-models.ts`: the home model server (socrates, `~/serve/ai`) as provider
-    `home`: `swift` (full 256K context, vision, a copy on each GPU behind one
-    endpoint, 4 requests at once, more queue). Reads the live list from
-    `/v1/models`, falling back to a built-in copy if the server is unreachable,
-    and adds a `home_models` system-prompt section. The key comes from
-    `$HOME_AI_KEY`, which the `pi` shell function (`shell/common/functions.sh`)
-    reads from 1Password (`op://Personal/home-ai-server/credential`, override
-    with `HOME_AI_KEY_REF`) for each run, so client machines need only the
-    `op` CLI, signed in. `HOME_AI_URL` overrides the default
-    `https://ai.lab.masonspeck.com` (LAN or WireGuard). socrates itself needs neither.
-  - `exit.ts`: `/exit` command (clean shutdown via `ctx.shutdown()`)
-  - `compact-tools.ts`: compact renderers for the built-in tools — bash and read
-    collapse to one line (Ctrl+O expands, first 20 lines), edit shows the full
-    diff, write shows its one-line result
-  - `thinking-tokens.ts`: appends a live token count to the animated working
-    row ("Working (214 tok)") while the model thinks; thinking lines are
-    removed from the transcript entirely (pi's hidden label is global to all
-    blocks). Press Ctrl+T to show thinking blocks; note this saves
-    `hideThinkingBlock` to settings, and `./setup.sh` resets it
-- `agents/`: subagent personalities, one `.md` each (none yet): frontmatter
-  `name`, `description`, optional `tools` (`+name`/`-name` against the
-  defaults, or a bare list), `model` (`provider/id`), `thinking`; the body is
-  appended to the subagent's system prompt. Read on every dispatch, so edits
-  need no `/reload`. Trusted projects can add their own in `.pi/agents/`. The
-  implementer/tester/reviewer/merger roles moved to `ai/skills/implement/roles/`.
-- `prompts/`: prompt templates (`/name` commands)
-  - `research.md`: `/research <topic> [lead...]` runs the shared `research`
-    skill (`ai/skills/research/`): a plan, one read-only background agent
-    per item, then a merged report in `./research-<task-slug>/`
-  - `implement.md`: `/implement <plan>` runs the shared `implement` skill
-    (`ai/skills/implement/`): steps in parallel git worktrees, each through
-    implementer, tester, reviewer loops and a locked merge-back (`wt.sh`)
-- `skills/`, `themes/`: empty for now (shared skills live in `../ai/skills/`)
+- `extensions/home-models.ts`: the home model server (socrates, `~/serve/ai`)
+  as provider `home`: `swift` (full 256K context, vision, a copy on each GPU
+  behind one endpoint, 4 requests at once, more queue). Reads the live list
+  from `/v1/models`, falling back to a built-in copy if the server is
+  unreachable, and adds a `home_models` system-prompt section. The key comes
+  from `$HOME_AI_KEY`, which the `pi` shell function
+  (`shell/common/functions.sh`) reads from 1Password
+  (`op://Personal/home-ai-server/credential`, override with
+  `HOME_AI_KEY_REF`) for each run, so client machines need only the `op` CLI,
+  signed in. `HOME_AI_URL` overrides the default
+  `https://ai.lab.masonspeck.com` (LAN or WireGuard). socrates itself needs
+  neither.
+- `skills/`: empty (shared skills live in `../ai/skills/`)
+
+Everything else is pi's stock behavior.
 
 Not tracked (machine-local or secret, stay in `~/.pi/agent/`): `auth.json`,
 `models.json`, `models-store.json`, `trust.json`, `sessions/`, `bin/`, `install/`.

@@ -52,10 +52,10 @@ claude/settings.json  merged into ~/.claude/settings.json
 ai/skills/            Agent skills, each linked into ~/.agents/skills (pi)
                       and ~/.claude/skills (Claude Code)
 pi/                   pi coding agent config (formerly ~/dev/pi-harness); see
-                      pi/README.md. extensions/ agents/ skills/ prompts/ themes/
-                      items are linked into ~/.pi/agent/<dir>/; settings.json,
-                      keybindings.json, mcp.json are merged; APPEND_SYSTEM.md
-                      goes in a block. Machine-specific bits stay untracked.
+                      pi/README.md. extensions/ skills/ items are linked into
+                      ~/.pi/agent/<dir>/; settings.json, mcp.json are merged.
+                      Kept minimal on purpose: the home model server, MCP
+                      servers, skills. Machine-specific bits stay untracked.
 scripts/              Standalone utilities, not linked (install-nvim.sh,
                       nvidia-nix-link.sh, install-fonts.sh,
                       gnome-terminal-profile.sh load|export, cheatsheet.sh
@@ -226,9 +226,8 @@ Caveats / open items:
   key the layers set are reset by the next `./setup.sh` (`-s` shows `DIFF`;
   a backup is kept). Put lasting changes in a layer, or the host layer for
   one machine. Keys the layers don't set are left alone.
-- Blocks with copied content (`agents/AGENTS.md`, `ghostty/config`,
-  `pi/APPEND_SYSTEM.md`) and generated files need `./setup.sh` after an edit;
-  `-s` shows `DIFF` until then. Linked and include-based targets are live.
+- Blocks with copied content (`agents/AGENTS.md`, `ghostty/config`) and
+  generated files need `./setup.sh` after an edit; `-s` shows `DIFF` until then. Linked and include-based targets are live.
 - Don't put machine-specific config (hardware, local services) in this
   repo; it targets several machines. Exception: the LAN-wide home model
   server in `pi/extensions/home-models.ts` and its search and code-search MCP servers in

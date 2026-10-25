@@ -1,23 +1,19 @@
 # AGENTS.md — pi/
 
-This directory is the source of truth for the user's pi coding agent setup:
-extensions, skills, prompt templates, and themes. **It is the
-code that runs pi.** A broken extension can stop pi from starting, so keep
+This directory holds the user's pi coding agent setup: the home model
+server extension, skills and MCP servers. The user prefers stock pi; don't add
+hand-built extensions, prompts, themes or settings without being asked.
+**It is code that runs in pi.** A broken extension can stop pi from starting, so keep
 changes small and always run the checks below. The repo-level `AGENTS.md`
 still applies; this file adds the pi specifics.
 
 ## Layout
 
 ```
-extensions/       pi extensions, one feature per .ts file   -> ~/.pi/agent/extensions
-                  (or a directory with index.ts, like agent/)
-agents/           subagent personalities, one .md each       -> ~/.pi/agent/agents
+extensions/       pi extensions (home-models.ts)            -> ~/.pi/agent/extensions
 skills/           skills, one directory each with SKILL.md  -> ~/.pi/agent/skills
-prompts/          prompt templates; foo.md becomes /foo     -> ~/.pi/agent/prompts
-themes/           theme .json files                         -> ~/.pi/agent/themes
-keybindings.json  custom keybindings
-APPEND_SYSTEM.md  pi-only global instructions (shared ones: ../agents/AGENTS.md)
-settings.json     intended settings values, merged into the live settings.json
+mcp.json          MCP servers, merged into the live mcp.json
+settings.json     default provider/model, merged into the live settings.json
 dev-setup.sh      links .pi-sdk and installs typescript (type-checking only)
 ```
 
@@ -35,8 +31,6 @@ Don't guess at the API. Read the docs and examples for the installed version:
 ```
 .pi-sdk/@earendil-works/pi-coding-agent/docs/extensions.md     extension API (events, tools, commands, UI)
 .pi-sdk/@earendil-works/pi-coding-agent/docs/skills.md         skills
-.pi-sdk/@earendil-works/pi-coding-agent/docs/prompt-templates.md
-.pi-sdk/@earendil-works/pi-coding-agent/docs/themes.md
 .pi-sdk/@earendil-works/pi-coding-agent/docs/models.md         models.json format
 .pi-sdk/@earendil-works/pi-coding-agent/docs/settings.md
 .pi-sdk/@earendil-works/pi-coding-agent/examples/extensions/   working examples
@@ -50,15 +44,12 @@ method name. Run `./dev-setup.sh` if `.pi-sdk` is missing.
 
 - Extensions default-export `function (pi: ExtensionAPI) { ... }` (may be `async`).
 - Start each extension with a short `/** ... */` header that lists what it registers
-  (tools, commands, event hooks). See `extensions/compact-tools.ts`.
+  (tools, commands, event hooks). See `extensions/home-models.ts`.
 - Only import host-provided packages (`@earendil-works/pi-coding-agent`,
   `@earendil-works/pi-ai`, `@earendil-works/pi-agent-core`, `@earendil-works/pi-tui`,
   `typebox`) and Node built-ins (`node:*`). Use `import type` for types only.
   Ask before adding any other dependency.
-- Tabs for indentation, double quotes, semicolons (match `compact-tools.ts`).
-- Name files after the command or tool they add (`exit.ts` → `/exit`). Split a
-  large extension into a directory whose `index.ts` is the entry point; import
-  siblings with the `.ts` extension (`./view.ts`).
+- Tabs for indentation, double quotes, semicolons (match `home-models.ts`).
 - When adding or removing a resource, update the list in `README.md`.
 - Secrets never go in this repo. `auth.json`, `models-store.json`, `sessions/`,
   and `trust.json` stay in `~/.pi/agent/` and are not tracked. Read keys at
