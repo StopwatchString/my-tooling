@@ -11,10 +11,11 @@
  * thinking level is shown only for models that reason. ctx turns yellow from
  * 70% and red from 90%. The status keyed `mode` (`modes.ts`) goes at the
  * right of the line; other statuses set by extensions (ctx.ui.setStatus) go
- * on a second line, as in pi's footer.
+ * on a second line, as in pi's footer. The same line, for an agent, is at the
+ * bottom of the task view (`tasks/ui.ts`), through `globalThis`.
  */
 import { homedir, hostname, userInfo } from "node:os";
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
 // The zsh prompt's colors: bold green user@host, grey colon, bold blue dir.
@@ -28,40 +29,72 @@ function displayPath(path: string): string {
 	return path === home || path.startsWith(`${home}/`) ? `~${path.slice(home.length)}` : path;
 }
 
+/** What a status line shows: footer.ts draws the main session's, tasks/ an agent's. */
+export interface StatusInfo {
+	cwd: string;
+	model?: { id: string; reasoning?: boolean };
+	thinking?: string;
+	percent?: number | null;
+	/** Text at the right; the main session's `mode` status if left out. */
+	mode?: string;
+}
+
+type StatusLine = (info: StatusInfo, width: number, theme: Theme) => string;
+
+const KEY = Symbol.for("my-tooling.footer");
+const shared = globalThis as typeof globalThis & { [KEY]?: { line?: StatusLine; mode?: string } };
+const state = (shared[KEY] ??= {});
+
+/** Context fill, yellow from 70% and red from 90%; "" if unknown. */
+function contextText(percent: number | null | undefined, theme: Theme): string {
+	if (percent == null) return "";
+	const value = `${Math.round(percent)}%`;
+	const color = percent >= 90 ? "error" : percent >= 70 ? "warning" : undefined;
+	return `ctx ${color ? theme.fg(color, value) : value}`;
+}
+
+const statusLine: StatusLine = (info, width, theme) => {
+	const sep = theme.fg("dim", " · ");
+	const parts = [
+		`${GREEN}${userInfo().username}@${hostname().split(".")[0]}${RESET}${GREY}:${RESET}${BLUE}${displayPath(info.cwd)}${RESET}`,
+	];
+	if (info.model) {
+		const thinking = info.model.reasoning && info.thinking ? ` ${theme.fg("dim", `(${info.thinking})`)}` : "";
+		parts.push(info.model.id + thinking);
+	}
+	const ctx = contextText(info.percent, theme);
+	if (ctx) parts.push(ctx);
+	const mode = (info.mode ?? state.mode)?.replace(/[\r\n\t]+/g, " ");
+	let line = parts.join(sep);
+	if (mode) {
+		const room = width - visibleWidth(mode) - 2;
+		line = room > 10 ? truncateToWidth(line, room, theme.fg("dim", "...")) : "";
+		line += " ".repeat(Math.max(1, width - visibleWidth(line) - visibleWidth(mode))) + mode;
+	}
+	return truncateToWidth(line, width, theme.fg("dim", "..."));
+};
+// Other extensions (tasks/) draw the same line through globalThis, so they
+// don't import this file.
+state.line = statusLine;
+
 export default function (pi: ExtensionAPI) {
 	let requestRender = () => {};
 
 	pi.on("session_start", async (_event, ctx) => {
 		if (ctx.mode !== "tui") return;
-		const identity =
-			`${GREEN}${userInfo().username}@${hostname().split(".")[0]}${RESET}` +
-			`${GREY}:${RESET}${BLUE}${displayPath(ctx.cwd)}${RESET}`;
 		ctx.ui.setFooter((tui, theme, footerData) => {
 			requestRender = () => tui.requestRender();
 			return {
 				render(width: number): string[] {
-					const sep = theme.fg("dim", " · ");
-					const parts = [identity];
-					const model = ctx.model;
-					if (model) {
-						const thinking = model.reasoning ? ` ${theme.fg("dim", `(${pi.getThinkingLevel()})`)}` : "";
-						parts.push(model.id + thinking);
-					}
-					const percent = ctx.getContextUsage()?.percent;
-					if (percent != null) {
-						const value = `${Math.round(percent)}%`;
-						const color = percent >= 90 ? "error" : percent >= 70 ? "warning" : undefined;
-						parts.push(`ctx ${color ? theme.fg(color, value) : value}`);
-					}
 					const all = footerData.getExtensionStatuses();
-					const mode = all.get("mode")?.replace(/[\r\n\t]+/g, " ");
-					let first = parts.join(sep);
-					if (mode) {
-						const room = width - visibleWidth(mode) - 2;
-						first = room > 10 ? truncateToWidth(first, room, theme.fg("dim", "...")) : "";
-						first += " ".repeat(Math.max(1, width - visibleWidth(first) - visibleWidth(mode))) + mode;
-					}
-					const lines = [first];
+					state.mode = all.get("mode");
+					const lines = [
+						statusLine(
+							{ cwd: ctx.cwd, model: ctx.model, thinking: pi.getThinkingLevel(), percent: ctx.getContextUsage()?.percent },
+							width,
+							theme,
+						),
+					];
 					const statuses = [...all.entries()]
 						.filter(([key]) => key !== "mode")
 						.sort(([a], [b]) => a.localeCompare(b))

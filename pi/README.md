@@ -84,7 +84,8 @@ servers every machine should have here.
   style of the Claude Code status line: `user@host:dir` (zsh prompt colors),
   the model with its thinking level, and context fill (`ctx 8%`). The
   permission mode (`modes.ts`) sits at the right; other extension statuses
-  still get a second line.
+  still get a second line. The task view (`tasks/`) ends with the same line
+  for the agent it shows.
 - `extensions/editor.ts`: the input box in the style of Claude Code's prompt:
   grey rules above and below (instead of rules coloured by thinking level)
   and a `>` before the text. In bash mode (`!`), the rules and the `>` take the
@@ -167,9 +168,11 @@ servers every machine should have here.
     interrupted. `task_log` gives the model a task's record and
     `task_list` lists the tasks.
   - The list below the prompt shows the tasks, with subagents' own tasks
-    nested under them. ↓ in an empty prompt moves into it: enter opens a
-    full-screen view (a shell's command and its live output, or an agent's
-    prompt and live transcript), and x stops the task. Finished tasks stay
+    nested under them, and an agent's context fill (`ctx 6%`). ↓ in an empty
+    prompt moves into it: enter opens a full-screen view (a shell's command
+    and its live output, or an agent's prompt and live transcript, with the
+    footer's status line for it: directory, model, context fill, mode), and
+    x stops the task. Finished tasks stay
     listed until you send your next prompt. `/tasks` lists every task in the
     session, finished ones included.
   - Quitting pi or switching sessions stops the session's tasks (recorded

@@ -1,6 +1,10 @@
 /**
  * The task list below the prompt, the full-screen task viewer, and how the
  * "task finished" messages look in the transcript.
+ *
+ * The viewer ends with the main footer's status line (`footer.ts`, through
+ * `globalThis`), here for the task: its directory, and an agent's model and
+ * context fill.
  */
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { Theme } from "@earendil-works/pi-coding-agent";
@@ -15,6 +19,14 @@ const INDENT = "     ";
 // Rows of the list below the prompt before it scrolls.
 const LIST_ROWS = 5;
 
+// footer.ts's status line, if it is loaded.
+type StatusLine = (
+	info: { cwd: string; model?: { id: string; reasoning?: boolean }; thinking?: string; percent?: number | null },
+	width: number,
+	theme: Theme,
+) => string;
+const FOOTER = Symbol.for("my-tooling.footer");
+
 type Content = { type: string; text?: string; name?: string; arguments?: Record<string, unknown> };
 
 export function dot(status: Status, theme: Theme): string {
@@ -27,6 +39,19 @@ export function dot(status: Status, theme: Theme): string {
 
 export function label(task: Task): string {
 	return task.kind === "shell" ? task.command.split("\n")[0]! : task.description;
+}
+
+/** How full an agent's context is, while its session lives. */
+function contextPercent(task: AgentTask): number | null | undefined {
+	return task.live?.getContextUsage()?.percent;
+}
+
+/** `ctx 12%`, yellow from 70% and red from 90% as in the footer; "" if unknown. */
+function contextText(task: Task, theme: Theme): string {
+	const percent = task.kind === "agent" ? contextPercent(task) : undefined;
+	if (percent == null) return "";
+	const color = percent >= 90 ? "error" : percent >= 70 ? "warning" : "dim";
+	return theme.fg("dim", " · ctx ") + theme.fg(color, `${Math.round(percent)}%`);
 }
 
 function meta(task: Task): string {
@@ -166,7 +191,7 @@ export class TaskView implements Component {
 	private header(inner: number): string[] {
 		const t = this.theme;
 		const task = this.task;
-		const status = `${dot(task.status, t)} ${task.status} · ${meta(task)}`;
+		const status = `${dot(task.status, t)} ${task.status} · ${meta(task)}${contextText(task, t)}`;
 		if (task.kind === "shell") {
 			return [
 				...wrap(t.bold(`$ ${task.command}`), inner).slice(0, 6),
@@ -198,31 +223,45 @@ export class TaskView implements Component {
 		return lines.length ? lines : [this.theme.fg("dim", "(no output yet)")];
 	}
 
+	private status(width: number): string {
+		const line = (globalThis as Record<symbol, { line?: StatusLine } | undefined>)[FOOTER]?.line;
+		if (!line) return "";
+		const task = this.task;
+		const live = task.kind === "agent" ? task.live : undefined;
+		return line(
+			{ cwd: task.cwd, model: live?.model, thinking: live?.thinkingLevel, percent: live?.getContextUsage()?.percent },
+			width,
+			this.theme,
+		);
+	}
+
 	render(width: number): string[] {
 		const t = this.theme;
-		const inner = Math.max(20, width - 4);
-		const border = (s: string) => t.fg("borderMuted", s);
-		const row = (s: string) => `${border("│")} ${truncateToWidth(s, inner, "…", true)} ${border("│")}`;
+		const inner = Math.max(20, width - 2);
+		const rule = (title = "") => t.fg("borderMuted", `──${title ? t.bold(title) : ""}${"─".repeat(Math.max(0, width - visibleWidth(title) - 2))}`);
+		const row = (s: string) => ` ${truncateToWidth(s, inner, "…", true)}`;
 		const title = ` ${this.task.kind === "shell" ? `Shell ${this.task.id}` : `Agent ${this.task.id}`} `;
 		const head = this.header(inner);
-		const height = Math.max(12, Math.floor(this.tui.terminal.rows * 0.85));
-		this.bodyHeight = Math.max(3, height - head.length - 5);
+		const status = this.status(width);
+		// The whole screen: title, header, rule, body, rule, hint, status line.
+		const height = Math.max(12, this.tui.terminal.rows);
+		this.bodyHeight = Math.max(3, height - head.length - 4 - (status ? 1 : 0));
 		const body = this.body(inner);
 		const maxTop = Math.max(0, body.length - this.bodyHeight);
 		if (this.follow) this.top = maxTop;
 		this.top = Math.min(Math.max(0, this.top), maxTop);
 		const visible = body.slice(this.top, this.top + this.bodyHeight);
 		while (visible.length < this.bodyHeight) visible.push("");
-		const position = body.length > this.bodyHeight ? ` ${this.top + 1}-${this.top + this.bodyHeight} of ${body.length} ` : "";
+		const position = body.length > this.bodyHeight ? ` · ${this.top + 1}-${this.top + this.bodyHeight} of ${body.length}` : "";
 		const hint = `↑↓ PgUp PgDn scroll · g/G top/bottom${this.task.status === "running" ? " · x stop" : ""} · esc close`;
 		return [
-			border(`╭─${t.bold(title)}${"─".repeat(Math.max(0, width - visibleWidth(title) - 3))}╮`),
+			rule(title),
 			...head.map(row),
-			border(`├${"─".repeat(Math.max(0, width - 2))}┤`),
+			rule(),
 			...visible.map(row),
-			border(`├${"─".repeat(Math.max(0, width - 2))}┤`),
-			row(t.fg("dim", hint) + t.fg("dim", position)),
-			border(`╰${"─".repeat(Math.max(0, width - 2))}╯`),
+			rule(),
+			row(t.fg("dim", hint + position)),
+			...(status ? [status] : []),
 		];
 	}
 
@@ -245,7 +284,7 @@ export class TaskView implements Component {
 		else return;
 		// Scrolling back to the end follows the output again.
 		if (!this.follow) {
-			const body = this.body(Math.max(20, this.tui.terminal.columns - 4));
+			const body = this.body(Math.max(20, this.tui.terminal.columns - 2));
 			if (this.top >= body.length - this.bodyHeight) this.follow = true;
 		}
 		this.tui.requestRender();
@@ -286,7 +325,7 @@ export class TaskList implements Component {
 			const selected = this.state.focused && start + i === sel;
 			const pointer = selected ? t.fg("accent", "›") : " ";
 			const activity = task.kind === "agent" && task.status === "running" && task.activity ? ` · ${task.activity}` : "";
-			const text = `${pointer} ${"  ".repeat(depth)}${dot(task.status, t)} ${label(task)}${t.fg("dim", `${activity} · ${meta(task)}`)}`;
+			const text = `${pointer} ${"  ".repeat(depth)}${dot(task.status, t)} ${label(task)}${t.fg("dim", `${activity} · ${meta(task)}`)}${contextText(task, t)}`;
 			const line = truncateToWidth(text, width, "…", selected);
 			return selected ? t.bg("selectedBg", line) : line;
 		});

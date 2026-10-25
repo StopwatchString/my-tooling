@@ -4,7 +4,7 @@
  * when they finish, and a list of them below the prompt.
  *
  *   › ⏺ npm run dev · shell · 1m 2s
- *     ⏺ Find the auth code · Read(src/auth.ts) · agent · 12s · 4 tools
+ *     ⏺ Find the auth code · Read(src/auth.ts) · agent · 12s · 4 tools · ctx 9%
  *       ↑↓ select · enter view · x stop · esc back
  *
  * - Tool `bash` (replaces pi's): adds `run_in_background` (`shells.ts`).
@@ -148,7 +148,8 @@ export default function (pi: ExtensionAPI) {
 		ctx.ui.custom<void>(
 			(tui, theme, _keybindings, done) =>
 				new TaskView(tui, theme, task, () => done(undefined), (t) => void stopTask(t)),
-			{ overlay: true, overlayOptions: { width: "95%", maxHeight: "90%", anchor: "center" } },
+			// The whole screen, like Claude Code's agent view.
+			{ overlay: true, overlayOptions: { width: "100%", maxHeight: "100%", anchor: "center" } },
 		);
 
 	pi.registerCommand("tasks", {
