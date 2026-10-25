@@ -40,6 +40,7 @@ the live file has drifted.
 | `defaultProvider` | `home` | start on the home model server (`home-models.ts`) |
 | `defaultModel` | `swift` | its primary model |
 | `quietStartup` | `"header"` | keep the header (`header.ts`, which also lists the context files) but hide pi's startup listings ([Context], [Skills], [Extensions], ...); warnings still show. `pi --verbose` brings the listings back for one run |
+| `compaction.enabled` | `false` | no auto-compaction; run `/compact` by hand when the context fills up |
 
 To try a value without committing, edit the live file directly.
 
@@ -74,6 +75,10 @@ servers every machine should have here.
   onboarding text) with the pi logo, version, current model and working
   directory, followed in grey by the loaded context files (what pi listed
   under `[Context]`). The other listings are off (`quietStartup`, above).
+- `extensions/footer.ts`: replaces pi's two-line footer with one line in the
+  style of the Claude Code status line: `user@host:dir` (zsh prompt colors),
+  the model with its thinking level, and context fill (`ctx 8%`). Extension
+  statuses still get a second line.
 - `skills/`: empty (shared skills live in `../ai/skills/`)
 
 Everything else is pi's stock behavior.

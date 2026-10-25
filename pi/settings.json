@@ -1,5 +1,8 @@
 {
   "defaultProvider": "home",
   "defaultModel": "swift",
-  "quietStartup": "header"
+  "quietStartup": "header",
+  "compaction": {
+    "enabled": false
+  }
 }
