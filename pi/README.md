@@ -86,6 +86,14 @@ servers every machine should have here.
   permission mode (`modes.ts`) sits at the right; other extension statuses
   still get a second line. The task view (`tasks/`) ends with the same line
   for the agent it shows.
+- `extensions/code-blocks.ts` (experimental): code blocks in markdown drawn
+  as a tinted panel with the language in its top border instead of ```
+  fences: syntax highlighting, line numbers (blocks of more than one line),
+  indent guides, brackets coloured by depth (unmatched ones red), long lines
+  wrapped inside the panel. Inline `code` gets the same tint behind it.
+  Copying a block from the terminal takes the borders and numbers along.
+  pi has no hook for this, so it patches pi-tui's `Markdown` (check after a
+  pi upgrade); delete the file to go back to pi's fences.
 - `extensions/context-bar.ts` (experimental): a bar the width of the
   terminal above the footer's line that fills with the context, shading from
   green through yellow (70%) to red (90%). The task view shows it for an

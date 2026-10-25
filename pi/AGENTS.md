@@ -85,7 +85,8 @@ The Claude Code look and the agent features (`tools.ts`, `tasks/`,
   `tmux capture-pane -p` (`-e` keeps colours). The symlinks are live, so
   `/reload` picks up edits. Kill the session when done.
 - **Patched pi internals:** `user-message.ts`, `assistant-message.ts` and
-  `working.ts` patch exported component prototypes; `tasks/shells.ts`
+  `working.ts` patch exported component prototypes, `code-blocks.ts` the
+  private `renderToken` of pi-tui's `Markdown`; `tasks/shells.ts`
   replaces the built-in `bash` tool. Recheck them after a pi upgrade.
 - **Keys taken from pi:** shift+tab (`modes.ts`, was thinking-level cycling)
   and ↓ in an empty prompt (`tasks/`). Both use `ctx.ui.onTerminalInput`, not
