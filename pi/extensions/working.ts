@@ -116,7 +116,7 @@ export default function (pi: ExtensionAPI) {
 		if (!s) return undefined;
 		const at = new Date(s.done).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 		const line = `✻ ${s.verb} for ${elapsed(s.ms)} · ↓ ${tokens(s.tokens)} tokens · done ${at}`;
-		return new Text(t.fg("dim", line), 1, 0);
+		return new Text(t.fg("dim", line), 0, 0);
 	});
 
 	pi.on("session_start", async (_event, ctx) => {

@@ -15,7 +15,7 @@
     "baseUrl": ".",
     "paths": {
       "@earendil-works/*": [".pi-sdk/@earendil-works/*/dist/index.d.ts"],
-      "typebox": [".pi-sdk/typebox"]
+      "typebox": [".pi-sdk/typebox/build/index.d.mts"]
     }
   },
   "include": ["extensions/**/*.ts"]

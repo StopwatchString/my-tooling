@@ -101,6 +101,53 @@ servers every machine should have here.
   provider's count per message. Thinking is never shown: it patches the
   exported `AssistantMessageComponent` to drop thinking blocks (check after
   a pi upgrade).
+- `extensions/tools.ts`: tool calls in the style of Claude Code's
+  transcript: `⏺ Bash(git status)` with the result under `⎿`, no panel.
+  The bullet blinks while the call runs, then turns green, or red on an error.
+  Bash, MCP and other output is cut to 3 lines, and a new file to its first 10.
+  Read, grep, find and ls show only a summary ("Read 125 lines"), and a run of
+  them with no text in between folds into one line ("Read 3 files"). Edits
+  show "Updated <file> with 1 addition and 1 removal" and pi's diff. MCP tools
+  read `server - tool (MCP)(args)`. pi's expand key (`ctrl+o`) or a click on a row
+  shows every call in full. Uses pi's `registerToolRenderer`, so it covers
+  every tool without patching.
+- `extensions/assistant-message.ts`: a `⏺` before each block of assistant
+  text, like tool calls. pi has no hook for this, so it patches the exported
+  `AssistantMessageComponent` (check after a pi upgrade).
+- `extensions/tasks/`: background shells and subagents, in the style of Claude
+  Code. While one runs, the model ends its turn, and a message with the result
+  starts its next turn when the task ends.
+  - `bash` (replaces pi's) takes `run_in_background`. `bash_output` reads
+    what a background shell has printed since the last look. Output is also
+    logged to `$TMPDIR/pi-tasks/`.
+  - `agent` starts a subagent: a fresh pi session in this process, in a
+    working directory the model picks, with auto-compaction on (the setting
+    is off for the main session) and the same model, extensions and MCP
+    servers. `allow_subagents` decides whether it gets `agent` itself. Its
+    final message is the answer. An agent finishes only once everything it
+    started has finished too.
+  - `agent_message` sends an agent more instructions. A running agent reads
+    them after its current step. A finished or stopped one carries on with
+    its context and answers again. One from before a restart starts afresh,
+    with its saved conversation as context.
+  - `task_stop` stops a shell or agent and everything it started.
+  - Tasks are saved in the session file as hidden `task` entries, never
+    sent to the model. For a shell: its command, status, exit code and the
+    last 20 KB of output. For an agent: its conversation, meaning the
+    orchestrator's messages, the agent's text replies, and its tool calls
+    with their results (arguments cut to 2 KB, results to 4 KB, keeping the
+    start and end), without thinking. Subagents' own tasks go into the top-level session.
+    After a restart (`pi -c`), tasks that were running show as
+    interrupted. `task_log` gives the model a task's record and
+    `task_list` lists the tasks.
+  - The list below the prompt shows the tasks, with subagents' own tasks
+    nested under them. ↓ in an empty prompt moves into it: enter opens a
+    full-screen view (a shell's command and its live output, or an agent's
+    prompt and live transcript), and x stops the task. Finished tasks stay
+    listed until you send your next prompt. `/tasks` lists every task in the
+    session, finished ones included.
+  - Quitting pi or switching sessions stops the session's tasks (recorded
+    as interrupted) and ends its agents' sessions; `/reload` keeps them.
 - `themes/claude-dark.json`, `claude-light.json`: Claude Code's dark and
   light palettes (taken from its binary, v2.1.310), mapped onto pi's colour
   roles: lavender inline code, links and accent (Claude Code's own accent,
