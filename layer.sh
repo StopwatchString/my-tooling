@@ -120,8 +120,6 @@ json claude/settings.json "$HOME/.claude/settings.json"
 link claude/statusline.sh "$HOME/.claude/statusline.sh"
 
 # Skills (ai/skills/<name>/SKILL.md), linked one by one for both harnesses.
-# An item may itself be a symlink into vendor/ (e.g. bento-slides); it
-# dangles until the submodules step below has checked vendor/ out.
 link_each ai/skills "$HOME/.agents/skills"
 link_each ai/skills "$HOME/.claude/skills"
 

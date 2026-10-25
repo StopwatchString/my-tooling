@@ -51,11 +51,13 @@ agents/AGENTS.md      Global agent instructions, copied into blocks in
 claude/settings.json  merged into ~/.claude/settings.json
 claude/statusline.sh  -> ~/.claude/statusline.sh (Claude Code status line)
 ai/skills/            Agent skills, each linked into ~/.agents/skills (pi)
-                      and ~/.claude/skills (Claude Code). bento-slides is a
-                      symlink to the skill shipped in vendor/bento
+                      and ~/.claude/skills (Claude Code). bento-slides
+                      bundles its own copies of bento.page's agent guide,
+                      schema, empty app and gallery samples so it never
+                      goes online; its update.sh refreshes them
 vendor/               Third-party repos as shallow git submodules, checked
                       out by the setup step: bento (nyblnet/bento, single-file
-                      .bento.html office apps). Update with
+                      .bento.html office apps; source and design docs). Update with
                       `git submodule update --remote --depth 1 vendor/<name>`
 pi/                   pi coding agent config (formerly ~/dev/pi-harness); see
                       pi/README.md. extensions/ skills/ themes/ items are linked into
@@ -109,7 +111,8 @@ nixos/templates/      Reference NixOS configuration.nix, not linked
   `json` for app-written JSON). Then document the path in the integration
   guide's conventions table.
 - Every script meant to be run by hand (`setup.sh`, `scripts/*`,
-  `pi/dev-setup.sh`) takes `-h`/`--help` and exits 2 on unknown arguments.
+  `pi/dev-setup.sh`, `ai/skills/bento-slides/update.sh`) takes
+  `-h`/`--help` and exits 2 on unknown arguments.
 - `setup.sh`, `layer.sh` and `lib/build.sh` must run under **bash 3.2** (macOS
   `/bin/bash`): no associative arrays, no `mapfile`, no `readlink -f`, no
   `${var,,}`. `layer.sh` runs under `set -euo pipefail`.
