@@ -84,8 +84,8 @@ servers every machine should have here.
   working directory. pi ties the cwd to the session, so it copies the session
   into a new one for `<dir>` (filed with that directory's sessions) and
   switches to it: history kept, tools, system prompt and context files
-  rebuilt for `<dir>`, running tasks stopped. The model gets a note on its
-  next turn. Takes relative paths, `~`, `-` (previous) or nothing (home);
+  rebuilt for `<dir>`, running tasks stopped. A note for the model goes into
+  the conversation. Takes relative paths, `~`, `-` (previous) or nothing (home);
   tab completes directories. Needs a saved session (not `--no-session`, and
   not before the first message).
 - `extensions/footer.ts`: replaces pi's two-line footer with one line in the

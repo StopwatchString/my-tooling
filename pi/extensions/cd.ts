@@ -6,8 +6,8 @@
  * copies the current session into a new one for `<dir>` (stored with that
  * directory's sessions, parent = the old file) and switches to it. The
  * history is kept; tasks end, as on any session switch. It also chdirs the
- * process, for paths pi resolves against it, and leaves a note for the model
- * on its next turn.
+ * process, for paths pi resolves against it, and adds a note for the model
+ * to the conversation.
  *
  * `<dir>` may be relative, `~`-prefixed, `-` (the previous one) or empty
  * (home). Directory names complete on tab.
@@ -93,14 +93,11 @@ export default function (pi: ExtensionAPI) {
 				withSession: async (next) => {
 					state.previous = from;
 					process.chdir(target);
-					await next.sendMessage(
-						{
-							customType: "cd",
-							content: `The working directory changed from ${from} to ${target}. Relative paths now resolve against ${target}.`,
-							display: true,
-						},
-						{ deliverAs: "nextTurn" },
-					);
+					await next.sendMessage({
+						customType: "cd",
+						content: `The working directory changed from ${from} to ${target}. Relative paths now resolve against ${target}.`,
+						display: true,
+					});
 				},
 			});
 		},
