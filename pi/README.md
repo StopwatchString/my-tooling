@@ -85,7 +85,7 @@ servers every machine should have here.
   into a new one for `<dir>` (filed with that directory's sessions) and
   switches to it: history kept, tools, system prompt and context files
   rebuilt for `<dir>`, running tasks stopped. A note for the model goes into
-  the conversation. Takes relative paths, `~`, `-` (previous) or nothing (home);
+  the conversation, shown as a tool-style line (`⏺ cd ~/dir`, `⎿ from ~/old`). Takes relative paths, `~`, `-` (previous) or nothing (home);
   tab completes directories. Needs a saved session (not `--no-session`, and
   not before the first message).
 - `extensions/footer.ts`: replaces pi's two-line footer with one line in the

@@ -11,11 +11,18 @@
  *
  * `<dir>` may be relative, `~`-prefixed, `-` (the previous one) or empty
  * (home). Directory names complete on tab.
+ *
+ * - Message renderer `cd`: the note as a transcript line, like a tool call
+ *   (`tools.ts`):
+ *
+ *     ⏺ cd ~/dev/project
+ *       ⎿  from ~/my-tooling
  */
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { getAgentDir, SessionManager, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { Text } from "@earendil-works/pi-tui";
 
 // Survives the extension reload that comes with the session switch.
 const STATE = Symbol.for("my-tooling.cd");
@@ -27,6 +34,13 @@ function expand(arg: string, base: string): string {
 	return resolve(base, arg);
 }
 
+type Details = { from: string; to: string };
+
+function tilde(path: string): string {
+	const home = homedir();
+	return path === home || path.startsWith(`${home}/`) ? `~${path.slice(home.length)}` : path;
+}
+
 function isDir(path: string): boolean {
 	try {
 		return statSync(path).isDirectory();
@@ -36,6 +50,13 @@ function isDir(path: string): boolean {
 }
 
 export default function (pi: ExtensionAPI) {
+	pi.registerMessageRenderer<Details>("cd", (message, _options, theme) => {
+		const { details } = message;
+		if (!details) return undefined;
+		const line = `${theme.fg("success", "⏺")} ${theme.bold(theme.fg("toolTitle", "cd"))} ${tilde(details.to)}`;
+		return new Text(`${line}\n${theme.fg("dim", `  ⎿  from ${tilde(details.from)}`)}`, 0, 0);
+	});
+
 	pi.registerCommand("cd", {
 		description: "Change the working directory, keeping the conversation",
 		getArgumentCompletions: (prefix) => {
@@ -97,6 +118,7 @@ export default function (pi: ExtensionAPI) {
 						customType: "cd",
 						content: `The working directory changed from ${from} to ${target}. Relative paths now resolve against ${target}.`,
 						display: true,
+						details: { from, to: target } satisfies Details,
 					});
 				},
 			});
