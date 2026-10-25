@@ -25,7 +25,7 @@ import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { Api, Model } from "@earendil-works/pi-ai";
 import type { ExtensionAPI, ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
-import { matchesKey } from "@earendil-works/pi-tui";
+import { isKeyRelease, matchesKey } from "@earendil-works/pi-tui";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -256,7 +256,8 @@ export default function (pi: ExtensionAPI) {
 		update();
 		state.listeners.add(update);
 		const unsubscribe = ctx.ui.onTerminalInput((data) => {
-			if (!matchesKey(data, "shift+tab")) return undefined;
+			// Listeners also get key releases (kitty protocol), which match too.
+			if (isKeyRelease(data) || !matchesKey(data, "shift+tab")) return undefined;
 			setMode(MODES[(MODES.indexOf(state.mode) + 1) % MODES.length]);
 			return { consume: true };
 		});

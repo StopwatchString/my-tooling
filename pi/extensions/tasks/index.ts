@@ -30,7 +30,7 @@
  * their own shells and agents nested under them.
  */
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { matchesKey, type TUI } from "@earendil-works/pi-tui";
+import { isKeyRelease, matchesKey, type TUI } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import { AGENT_DONE, registerAgents } from "./agents.ts";
 import {
@@ -210,7 +210,8 @@ export default function (pi: ExtensionAPI) {
 		);
 
 		const unsubscribe = ctx.ui.onTerminalInput((data) => {
-			if (viewing) return undefined;
+			// Listeners also get key releases (kitty protocol), which match too.
+			if (viewing || isKeyRelease(data)) return undefined;
 			const rows = visibleTasks();
 			if (!state.focused) {
 				if (!matchesKey(data, "down") || rows.length === 0 || ctx.ui.getEditorText() !== "") return undefined;

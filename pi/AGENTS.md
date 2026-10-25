@@ -89,7 +89,9 @@ The Claude Code look and the agent features (`tools.ts`, `tasks/`,
   replaces the built-in `bash` tool. Recheck them after a pi upgrade.
 - **Keys taken from pi:** shift+tab (`modes.ts`, was thinking-level cycling)
   and ↓ in an empty prompt (`tasks/`). Both use `ctx.ui.onTerminalInput`, not
-  `registerShortcut`, so pi prints no conflict warning.
+  `registerShortcut`, so pi prints no conflict warning. Those listeners
+  also receive key releases under the kitty protocol (Ghostty, not tmux),
+  and `matchesKey` matches them, so skip `isKeyRelease(data)` first.
 - **Shared state** lives on `globalThis` under `Symbol.for("my-tooling.*")`
   keys (`tasks.registry`, `modes`), so it survives `/reload` and subagent
   sessions (which load the same extensions in-process) share it.
