@@ -96,7 +96,9 @@ servers every machine should have here.
 - `extensions/editor.ts`: the input box in the style of Claude Code's prompt:
   grey rules above and below (instead of rules coloured by thinking level)
   and a `>` before the text. In bash mode (`!`), the rules and the `>` take the
-  bash-mode colour. pi's `editorPaddingX` setting is ignored.
+  bash-mode colour. Esc twice clears the text, as in Claude Code (the first
+  marks the rule "Esc again to clear"; ↑ brings the text back); while pi
+  works, Esc still interrupts. pi's `editorPaddingX` setting is ignored.
 - `extensions/user-message.ts`: sent messages in the style of Claude Code's
   transcript: `> ` before the text on a one-line `userMessageBg` band,
   instead of pi's padded block. pi has no
