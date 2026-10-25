@@ -94,7 +94,16 @@ servers every machine should have here.
   Highlighting comes from tree-sitter (`treesitter.ts`) for bash, C, C++,
   Go, JavaScript, JSON, Lua, Python, Rust, TSX and TypeScript, and from pi's
   highlight.js for anything else (and for the moment after start-up while
-  the grammars load). Copying a block from the terminal takes the borders
+  the grammars load).
+  - Colours come from a code theme: `/code-theme` picks one (saved in
+    `~/.pi/agent/code-blocks.json`), `light/dark` picks by pi's appearance.
+    Default `vs-light/vs-dark`, Visual Studio 2022's Light and Dark (control
+    keywords purple, as there). Also `dark-plus`/`light-plus` (VS Code) and
+    `pi` (pi's own `syntax*` colours on a tint of the terminal). A theme is a
+    JSON file in `themes/` (format in `themes.ts`): panel colours plus
+    tree-sitter capture names to colours; highlight.js blocks are mapped
+    onto the same colours.
+  - Copying a block from the terminal takes the borders
   and numbers along. pi has no hook for this, so it patches pi-tui's
   `Markdown` (check after a pi upgrade); delete the directory to go back to
   pi's fences.
@@ -219,7 +228,7 @@ servers every machine should have here.
 Everything else is pi's stock behavior.
 
 Not tracked (machine-local or secret, stay in `~/.pi/agent/`): `auth.json`,
-`models.json`, `models-store.json`, `trust.json`, `modes.json`, `context-bar.json`, `sessions/`, `bin/`, `install/`.
+`models.json`, `models-store.json`, `trust.json`, `modes.json`, `context-bar.json`, `code-blocks.json`, `sessions/`, `bin/`, `install/`.
 
 ## Development
 

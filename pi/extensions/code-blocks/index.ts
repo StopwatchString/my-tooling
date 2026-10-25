@@ -8,17 +8,22 @@
  *   │ 3  }                                          │
  *   ╰───────────────────────────────────────────────╯
  *
+ * - Command `/code-theme [name]`: picks the code theme (`themes.ts`: the
+ *   JSON files in `themes/`, or `pi`; `light/dark` picks by pi's theme),
+ *   saved in `code-blocks.json` in pi's agent dir. Default: Visual Studio's
+ *   (`vs-light/vs-dark`).
  * - Event `session_start`: keeps pi's UI for the theme (TUI only); without
  *   it (print mode) pi's own rendering stays. Starts loading the tree-sitter
  *   grammars, and redraws markdown each time one is ready.
  *
  * Inside the panel: tree-sitter highlighting for the languages pinned in
  * `vendor/` (`treesitter.ts`: bash, c, cpp, go, javascript, json, lua,
- * python, rust, tsx, typescript), pi's highlight.js for the rest, line numbers (blocks of more
- * than one line), indent guides, and brackets coloured by depth (VS Code's
- * bracket-pair colours; an unmatched one in the error colour). Brackets in
+ * python, rust, tsx, typescript), pi's highlight.js for the rest (its
+ * colours swapped for the theme's), line numbers (blocks of more than one
+ * line), indent guides, and brackets coloured by depth (an unmatched one in
+ * the theme's error colour). Brackets in
  * strings and comments are left alone, by a rough per-language scan. Long
- * lines wrap inside the panel. Inline `code` gets the same tint behind it.
+ * lines wrap inside the panel. Inline `code` gets the panel's background.
  *
  * pi has no hook for this, so it patches pi-tui's exported Markdown
  * component's private `renderToken` for `code` tokens. The original is kept
@@ -28,22 +33,16 @@
  */
 import type { ExtensionAPI, ExtensionUIContext, Theme } from "@earendil-works/pi-coding-agent";
 import { highlightCode } from "@earendil-works/pi-coding-agent";
-import { backgroundAnsi, foregroundAnsi, Markdown, mixColors, parseColor, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import { Markdown, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import type { TUI } from "@earendil-works/pi-tui";
+import { chosenTheme, currentStyle, DEFAULT_THEME, knownTheme, saveTheme, themeChoices } from "./themes.ts";
 import { highlight, load } from "./treesitter.ts";
 
 const ORIGINAL = Symbol.for("my-tooling.code-blocks.renderToken");
 const ORIGINAL_RENDER = Symbol.for("my-tooling.code-blocks.render");
 const GENERATION = Symbol.for("my-tooling.code-blocks.generation");
 const TINTED = Symbol.for("my-tooling.code-blocks.tinted");
-// How far the panel's background moves from the terminal's toward the text colour.
-const TINT = 0.08;
 const TAB = "    ";
-// Bracket colours by depth, VS Code's defaults for dark and light themes.
-const BRACKETS = {
-	dark: ["#ffd700", "#da70d6", "#179fff"],
-	light: ["#0431fa", "#319331", "#7b3814"],
-};
 const OPEN = "([{";
 const CLOSE = ")]}";
 // Comment syntax by language; anything else gets C's.
@@ -65,7 +64,7 @@ type MarkdownInternals = {
 
 let ui: ExtensionUIContext | undefined;
 let screen: TUI | undefined;
-// Goes up each time a grammar loads, so markdown drawn before that redraws.
+// Goes up each time a grammar loads or the theme changes, so markdown drawn before that redraws.
 let generation = 0;
 
 /** Where each bracket outside strings and comments sits, line by line, and its depth (-1: unmatched). */
@@ -129,7 +128,7 @@ function dropColumns(ansi: string, count: number): string {
 }
 
 /** Recolour the brackets at visible columns in `colors`, then put the highlighting back. */
-function colourBrackets(ansi: string, colors: Map<number, string>): string {
+function colourBrackets(ansi: string, colors: Map<number, string>, plain: string): string {
 	if (colors.size === 0) return ansi;
 	let out = "";
 	let active = "";
@@ -143,7 +142,7 @@ function colourBrackets(ansi: string, colors: Map<number, string>): string {
 			continue;
 		}
 		const color = colors.get(col);
-		out += color ? `${color}${ansi[i]}\x1b[39m${active}` : ansi[i];
+		out += color ? `${color}${ansi[i]}${plain}${active}` : ansi[i];
 		col++;
 		i++;
 	}
@@ -155,22 +154,13 @@ function keepBackground(ansi: string, bg: string): string {
 	return bg + ansi.replace(/\x1b\[(0|49)?m/g, (m) => m + bg);
 }
 
-function panelBackground(theme: Theme): string {
-	const colors = theme.colors;
-	// toolPendingBg is "" in the Claude themes: the terminal's own background.
-	return backgroundAnsi(mixColors(colors.toolPendingBg, colors.text, TINT, "srgb"), theme.getColorMode());
-}
-
 function renderPanel(token: Token, width: number, theme: Theme): string[] {
 	const lang = (token.lang ?? "").trim().split(/\s/)[0]!.toLowerCase();
 	const raw = token.text.replace(/\t/g, TAB).split("\n");
 	const code = raw.join("\n");
-	const highlighted = highlight(code, lang, theme) ?? highlightCode(code, lang || undefined);
-	const border = (s: string) => theme.fg("mdCodeBlockBorder", s);
-	const bg = panelBackground(theme);
-	const mode = theme.getColorMode();
-	const palette = BRACKETS[theme.appearance === "light" ? "light" : "dark"].map((hex) => foregroundAnsi(parseColor(hex), mode));
-	const unmatched = foregroundAnsi(theme.colors.error, mode);
+	const style = currentStyle(theme);
+	const highlighted = highlight(code, lang, style) ?? highlightCode(code, lang || undefined).map(style.remap);
+	const border = (s: string) => `${style.border}${s}\x1b[39m`;
 
 	// Indent: blank lines take the smaller indent of their neighbours, so guides run through them.
 	const lead = raw.map((l) => (l.trim() ? l.length - l.trimStart().length : -1));
@@ -190,21 +180,21 @@ function renderPanel(token: Token, width: number, theme: Theme): string[] {
 	const codeWidth = inner - gutter;
 	if (codeWidth < 10) return [];
 
-	const label = lang ? ` ${theme.fg("muted", lang)} ` : "";
+	const label = lang ? ` ${style.label}${lang}\x1b[39m ` : "";
 	const out = [border("╭─") + label + border(`${"─".repeat(Math.max(0, width - 3 - visibleWidth(label)))}╮`)];
 	raw.forEach((_, i) => {
 		const indent = lead[i]!;
-		const guides = Array.from({ length: indent }, (_, c) => (c % unit === 0 ? theme.fg("dim", "│") : " ")).join("");
+		const guides = Array.from({ length: indent }, (_, c) => (c % unit === 0 ? `${style.guide}│${style.plain}` : " ")).join("");
 		const colors = new Map<number, string>();
 		for (const [col, depth] of brackets[i]!) {
-			if (col >= indent) colors.set(col - indent, depth < 0 ? unmatched : palette[depth % palette.length]!);
+			if (col >= indent) colors.set(col - indent, depth < 0 ? style.unmatched : style.brackets[depth % style.brackets.length]!);
 		}
-		const code = colourBrackets(dropColumns(highlighted[i] ?? "", indent), colors);
+		const code = colourBrackets(dropColumns(highlighted[i] ?? "", indent), colors, style.plain);
 		const parts = wrapTextWithAnsi(guides + code, codeWidth);
 		parts.forEach((part, k) => {
-			const num = numbered ? theme.fg("dim", `${k === 0 ? String(i + 1).padStart(numWidth) : " ".repeat(numWidth)}  `) : "";
+			const num = numbered ? `${style.lineNumber}${k === 0 ? String(i + 1).padStart(numWidth) : " ".repeat(numWidth)}  ${style.plain}` : "";
 			const fill = " ".repeat(Math.max(0, codeWidth - visibleWidth(part)));
-			out.push(`${border("│")}${keepBackground(` ${num}${part}${fill} `, bg)}\x1b[49m${border("│")}`);
+			out.push(`${border("│")}${keepBackground(` ${num}${part}${fill} `, style.background)}\x1b[49m${border("│")}`);
 		});
 	});
 	out.push(border(`╰${"─".repeat(Math.max(0, width - 2))}╯`));
@@ -233,7 +223,7 @@ proto.renderToken = function (this: MarkdownInternals, token, width, nextTokenTy
 		// A band behind the whole text (sent messages) would be cut by the tint's end.
 		if (!this.defaultTextStyle?.bgColor) {
 			const code = this.theme.code;
-			this.theme = { ...this.theme, code: (text) => (ui ? keepBackground(code(text), panelBackground(ui.theme)) + "\x1b[49m" : code(text)) };
+			this.theme = { ...this.theme, code: (text) => (ui ? keepBackground(code(text), currentStyle(ui.theme).background) + "\x1b[49m" : code(text)) };
 		}
 	}
 	if (theme && token.type === "code") {
@@ -246,7 +236,39 @@ proto.renderToken = function (this: MarkdownInternals, token, width, nextTokenTy
 	return renderToken.call(this, token, width, nextTokenType, styleContext);
 };
 
+const redraw = () => {
+	generation++;
+	screen?.requestRender();
+};
+
 export default function (pi: ExtensionAPI) {
+	pi.registerCommand("code-theme", {
+		description: "Pick the colour theme of code blocks (saved for later sessions)",
+		getArgumentCompletions: (prefix) =>
+			themeChoices()
+				.map(([name]) => name)
+				.filter((name) => name.startsWith(prefix))
+				.map((name) => ({ value: name, label: name })),
+		handler: async (args, ctx) => {
+			let name = args.trim();
+			if (!name) {
+				const options = [`${DEFAULT_THEME} · Visual Studio, light or dark to match pi`];
+				for (const [theme, description] of themeChoices()) options.push(description ? `${theme} · ${description}` : theme);
+				const pick = await ctx.ui.select(`Code theme (now: ${chosenTheme()})`, options);
+				if (pick === undefined) return;
+				name = pick.split(" · ")[0]!;
+			}
+			const parts = name.split("/").map((part) => part.trim());
+			if (parts.length > 2 || !parts.every(knownTheme)) {
+				const names = themeChoices().map(([theme]) => theme).join(", ");
+				return ctx.ui.notify(`Unknown code theme ${name} (${names}; or light/dark)`, "error");
+			}
+			saveTheme(parts.join("/"));
+			redraw();
+			ctx.ui.notify(`Code theme: ${parts.join("/")}`, "info");
+		},
+	});
+
 	pi.on("session_start", async (_event, ctx) => {
 		if (ctx.mode !== "tui") return;
 		ui = ctx.ui;
@@ -255,9 +277,6 @@ export default function (pi: ExtensionAPI) {
 			screen = tui;
 			return { render: () => [], invalidate() {} };
 		});
-		load(() => {
-			generation++;
-			screen?.requestRender();
-		});
+		load(redraw);
 	});
 }

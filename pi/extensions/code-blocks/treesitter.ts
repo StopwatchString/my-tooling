@@ -6,16 +6,14 @@
  *
  * `load()` reads the grammars in the background; until a language is ready
  * (or if it fails), `highlight()` returns undefined and the caller falls
- * back to pi's highlight.js. Captures map onto the theme's `syntax*`
- * colours. Where captures overlap, the smaller node wins, and for the same
+ * back to pi's highlight.js. Captures get their colours from the code theme
+ * (`themes.ts`). Where captures overlap, the smaller node wins, and for the same
  * node the later pattern (the queries list generic patterns first).
  */
-import type { Theme } from "@earendil-works/pi-coding-agent";
 import { readFileSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { Language, Parser, Query } from "web-tree-sitter";
-
-type ThemeColor = Parameters<Theme["getFgAnsi"]>[0];
+import type { Style } from "./themes.ts";
 
 const VENDOR = fileURLToPath(new URL("./vendor/", import.meta.url));
 
@@ -68,42 +66,15 @@ const ALIASES: Record<string, string> = {
 	cts: "typescript",
 };
 
-// Capture name (or its first parts) -> theme colour; "" leaves the text plain.
-const COLORS = new Map<string, ThemeColor | "">([
-	["comment", "syntaxComment"],
-	["keyword", "syntaxKeyword"],
-	["conditional", "syntaxKeyword"],
-	["repeat", "syntaxKeyword"],
-	["include", "syntaxKeyword"],
-	["exception", "syntaxKeyword"],
-	["preproc", "syntaxKeyword"],
-	["label", "syntaxKeyword"],
-	["tag", "syntaxKeyword"],
-	["variable.builtin", "syntaxKeyword"],
-	["operator", "syntaxOperator"],
-	["string", "syntaxString"],
-	["string.special.key", "syntaxVariable"],
-	["escape", "syntaxNumber"],
-	["string.escape", "syntaxNumber"],
-	["character", "syntaxString"],
-	["number", "syntaxNumber"],
-	["float", "syntaxNumber"],
-	["boolean", "syntaxNumber"],
-	["constant", "syntaxNumber"],
-	["function", "syntaxFunction"],
-	["method", "syntaxFunction"],
-	["attribute", "syntaxFunction"],
-	["constructor", "syntaxType"],
-	["type", "syntaxType"],
-	["module", "syntaxType"],
-	["namespace", "syntaxType"],
-	["variable", ""],
-	["property", ""],
-	["field", ""],
-	["parameter", ""],
-	["punctuation", "syntaxPunctuation"],
-	["delimiter", "syntaxPunctuation"],
-]);
+// Nodes some grammars capture as plain `type` that are built into the language.
+const BUILTIN_TYPES = new Set(["primitive_type", "predefined_type", "builtin_type", "sized_type_specifier"]);
+
+/** The capture name a theme sees: `type.builtin` for built-in types, `preproc` for `#include` and the like. */
+function refine(capture: string, nodeType: string, text: string): string {
+	if (capture === "type" && BUILTIN_TYPES.has(nodeType)) return "type.builtin";
+	if (capture.startsWith("keyword") && text.startsWith("#")) return "preproc";
+	return capture;
+}
 
 type Lib = typeof import("web-tree-sitter");
 interface Loaded {
@@ -147,17 +118,8 @@ export function load(done: () => void): void {
 	})();
 }
 
-function colorFor(capture: string, theme: Theme): string | undefined {
-	for (let name = capture; name; name = name.slice(0, Math.max(0, name.lastIndexOf(".")))) {
-		const color = COLORS.get(name);
-		if (color !== undefined) return color ? theme.getFgAnsi(color) : "";
-		if (!name.includes(".")) break;
-	}
-	return undefined;
-}
-
 /** Highlighted lines of `code`, or undefined when the language has no grammar ready. */
-export function highlight(code: string, lang: string, theme: Theme): string[] | undefined {
+export function highlight(code: string, lang: string, style: Style): string[] | undefined {
 	const name = grammarFor(lang);
 	const grammar = name ? ready.get(name) : undefined;
 	if (!grammar || !parser) return undefined;
@@ -169,9 +131,10 @@ export function highlight(code: string, lang: string, theme: Theme): string[] | 
 		const size: number[] = new Array(code.length);
 		const pattern: number[] = new Array(code.length);
 		for (const capture of grammar.query.captures(tree.rootNode)) {
-			const ansi = colorFor(capture.name, theme);
-			if (ansi === undefined) continue;
 			const { startIndex: start, endIndex: end } = capture.node;
+			const text = code.slice(start, end);
+			const ansi = style.color(refine(capture.name, capture.node.type, text), text);
+			if (ansi === undefined) continue;
 			const span = end - start;
 			for (let i = start; i < end && i < code.length; i++) {
 				const s = size[i];
@@ -183,23 +146,23 @@ export function highlight(code: string, lang: string, theme: Theme): string[] | 
 			}
 		}
 		const lines: string[] = [];
-		let line = "";
+		let line = style.plain;
 		let current = "";
 		for (let i = 0; i < code.length; i++) {
 			const ch = code[i]!;
 			if (ch === "\n") {
-				lines.push(current ? `${line}\x1b[39m` : line);
-				line = current;
+				lines.push(line);
+				line = current || style.plain;
 				continue;
 			}
 			const want = color[i] ?? "";
 			if (want !== current) {
-				line += want || "\x1b[39m";
+				line += want || style.plain;
 				current = want;
 			}
 			line += ch;
 		}
-		lines.push(current ? `${line}\x1b[39m` : line);
+		lines.push(line);
 		return lines;
 	} finally {
 		tree.delete();
