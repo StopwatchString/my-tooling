@@ -1,4 +1,5 @@
 {
   "defaultProvider": "home",
-  "defaultModel": "swift"
+  "defaultModel": "swift",
+  "quietStartup": "header"
 }

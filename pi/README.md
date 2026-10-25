@@ -39,6 +39,7 @@ the live file has drifted.
 |---|---|---|
 | `defaultProvider` | `home` | start on the home model server (`home-models.ts`) |
 | `defaultModel` | `swift` | its primary model |
+| `quietStartup` | `"header"` | keep the header (`header.ts`, which also lists the context files) but hide pi's startup listings ([Context], [Skills], [Extensions], ...); warnings still show. `pi --verbose` brings the listings back for one run |
 
 To try a value without committing, edit the live file directly.
 
@@ -69,6 +70,10 @@ servers every machine should have here.
   signed in. `HOME_AI_URL` overrides the default
   `https://ai.lab.masonspeck.com` (LAN or WireGuard). socrates itself needs
   neither.
+- `extensions/header.ts`: replaces the startup header (logo, key hints,
+  onboarding text) with the pi logo, version, current model and working
+  directory, followed in grey by the loaded context files (what pi listed
+  under `[Context]`). The other listings are off (`quietStartup`, above).
 - `skills/`: empty (shared skills live in `../ai/skills/`)
 
 Everything else is pi's stock behavior.
