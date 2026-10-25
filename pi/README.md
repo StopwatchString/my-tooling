@@ -75,7 +75,10 @@ servers every machine should have here.
   onboarding text) with the pi logo, version, current model and working
   directory, followed in grey by the loaded context files (what pi listed
   under `[Context]`). The other listings are off (`quietStartup`, above).
-- `extensions/exit.ts`: `/exit`, an alias for pi's `/quit`
+- `extensions/exit.ts`: `/exit` quits pi. Hides `/quit`, `/share`, `/bug`,
+  `/fork`, `/clone`, `/llama`, `/tree`, `/export`, `/import` and `/changelog`
+  from the `/` menu (`HIDDEN`; typing one still works, pi has no way to
+  remove built-ins)
 - `extensions/footer.ts`: replaces pi's two-line footer with one line in the
   style of the Claude Code status line: `user@host:dir` (zsh prompt colors),
   the model with its thinking level, and context fill (`ctx 8%`). Extension
