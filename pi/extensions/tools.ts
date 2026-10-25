@@ -8,8 +8,10 @@
  *        … +8 lines (ctrl+o to expand)
  *
  *   ⏺ Update(pi/README.md)
- *     ⎿  Updated pi/README.md with 3 additions and 1 removal
- *         44  | `theme` | ...
+ *     ⎿  Updated pi/README.md with 1 addition and 1 removal
+ *         43   | `quietStartup` | ...
+ *         44 - | `theme` | `claude-dark` |      (red band)
+ *         44 + | `theme` | `claude-light/claude-dark` |   (green band)
  *
  *   ⏺ Read 3 files (ctrl+o to expand)
  *
@@ -18,7 +20,8 @@
  * run of two or more of them with no text in between folds into one line
  * ("Searched for 1 pattern, read 2 files"). Expanding (pi's expand key, or a
  * click on the row) shows every call and its full output. MCP tools read
- * `server - tool (MCP)(args)`.
+ * `server - tool (MCP)(args)`. Edits show Claude Code's diff: highlighted
+ * code on red and green bands, the changed words in a stronger shade.
  *
  * - `registerToolRenderer`: draws every tool, built-in, MCP or extension.
  * - Events `session_start`, `session_tree`, `session_compact`,
@@ -28,9 +31,9 @@
  */
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { ExtensionAPI, Theme, ToolRenderers } from "@earendil-works/pi-coding-agent";
-import { getLanguageFromPath, highlightCode, keyText, renderDiff } from "@earendil-works/pi-coding-agent";
+import { getLanguageFromPath, highlightCode, keyText } from "@earendil-works/pi-coding-agent";
 import type { Component } from "@earendil-works/pi-tui";
-import { truncateToWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import { backgroundAnsi, rgbColor, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import { homedir } from "node:os";
 import { isAbsolute, relative } from "node:path";
 
@@ -141,6 +144,135 @@ function body(text: string[], width: number, theme: Theme, max?: number, keepEnd
 }
 
 /** The bullet, blinking while the call runs. */
+// Claude Code's diff backgrounds: [line, changed words], per appearance.
+const DIFF_COLORS = {
+	dark: { added: [[34, 92, 43], [56, 166, 96]], removed: [[122, 41, 54], [179, 89, 107]] },
+	light: { added: [[105, 219, 124], [47, 157, 68]], removed: [[255, 168, 180], [209, 69, 75]] },
+} as const;
+// Word highlights only for lines that mostly stayed the same.
+const WORD_DIFF_MAX_CHANGE = 0.5;
+const WORD_DIFF_MAX_TOKENS = 400;
+
+type DiffRow = { sign: "+" | "-" | " "; num: string; code: string; words?: [number, number][] };
+
+/** Ranges of `a` not in the longest common token sequence with `b`. */
+function changedRanges(a: string, b: string): [number, number][] | undefined {
+	const split = (s: string) => s.match(/\w+|\s+|[^\w\s]/g) ?? [];
+	const ta = split(a);
+	const tb = split(b);
+	if (ta.length > WORD_DIFF_MAX_TOKENS || tb.length > WORD_DIFF_MAX_TOKENS) return undefined;
+	const lcs = Array.from({ length: ta.length + 1 }, () => new Array<number>(tb.length + 1).fill(0));
+	for (let i = ta.length - 1; i >= 0; i--) {
+		for (let j = tb.length - 1; j >= 0; j--) {
+			lcs[i][j] = ta[i] === tb[j] ? lcs[i + 1][j + 1] + 1 : Math.max(lcs[i + 1][j], lcs[i][j + 1]);
+		}
+	}
+	const ranges: [number, number][] = [];
+	let changed = 0;
+	let pos = 0;
+	for (let i = 0, j = 0; i < ta.length; ) {
+		if (j < tb.length && ta[i] === tb[j]) {
+			j++;
+		} else if (j < tb.length && lcs[i][j + 1] >= lcs[i + 1][j]) {
+			// A token only in `b`: skip it.
+			j++;
+			continue;
+		} else {
+			const last = ranges[ranges.length - 1];
+			if (last && last[1] === pos) last[1] += ta[i].length;
+			else ranges.push([pos, pos + ta[i].length]);
+			if (ta[i].trim()) changed += ta[i].length;
+		}
+		pos += ta[i++].length;
+	}
+	return changed / Math.max(1, a.trim().length) <= WORD_DIFF_MAX_CHANGE ? ranges : undefined;
+}
+
+/** Rows of pi's edit diff (`+12 code`, `-12 code`, ` 12 code`, `    ...`), with changed words paired up. */
+function parseDiff(diff: string): (DiffRow | "skip")[] {
+	const rows: (DiffRow | "skip")[] = [];
+	for (const line of diff.split("\n")) {
+		const m = /^([+\- ])\s*(\d+) (.*)$/.exec(line);
+		if (m) rows.push({ sign: m[1] as DiffRow["sign"], num: m[2], code: m[3].replace(/\t/g, "    ") });
+		else if (line.trim() === "...") rows.push("skip");
+	}
+	// The n-th removed line of a block pairs with its n-th added line.
+	for (let i = 0; i < rows.length; ) {
+		const removed: DiffRow[] = [];
+		const added: DiffRow[] = [];
+		for (let r = rows[i]; i < rows.length && r !== "skip" && r.sign === "-"; r = rows[++i]) removed.push(r);
+		for (let r = rows[i]; i < rows.length && r !== "skip" && r.sign === "+"; r = rows[++i]) added.push(r);
+		if (!removed.length && !added.length) i++;
+		for (let k = 0; k < Math.min(removed.length, added.length); k++) {
+			const old = changedRanges(removed[k].code, added[k].code);
+			const neu = old && changedRanges(added[k].code, removed[k].code);
+			if (old && neu) {
+				removed[k].words = old;
+				added[k].words = neu;
+			}
+		}
+	}
+	return rows;
+}
+
+/** `ansi` with `base` behind it and `word` behind the given plain-text ranges. */
+function paint(ansi: string, base: string, word: string, ranges: [number, number][] = []): string {
+	let out = base;
+	let pos = 0;
+	let inWord = false;
+	for (let i = 0; i < ansi.length; ) {
+		const esc = /^\x1b\[[0-9;]*m/.exec(ansi.slice(i, i + 32));
+		if (esc) {
+			out += esc[0];
+			// A reset drops the background too: put it back.
+			if (/\x1b\[(0|49)?m/.test(esc[0])) out += inWord ? word : base;
+			i += esc[0].length;
+			continue;
+		}
+		const want = ranges.some(([a, b]) => pos >= a && pos < b);
+		if (want !== inWord) {
+			inWord = want;
+			out += want ? word : base;
+		}
+		out += ansi[i];
+		pos++;
+		i++;
+	}
+	return out + (inWord ? base : "");
+}
+
+/** pi's edit diff in the style of Claude Code: numbered, highlighted rows, full-width bands on changes. */
+function renderEditDiff(diff: string, path: string, width: number, theme: Theme): string[] {
+	const rows = parseDiff(diff);
+	const lang = getLanguageFromPath(path);
+	const numWidth = Math.max(...rows.map((r) => (r === "skip" ? 0 : r.num.length)), 1);
+	const inner = Math.max(20, width - INDENT.length);
+	const codeWidth = Math.max(10, inner - numWidth - 3);
+	const palette = DIFF_COLORS[theme.appearance === "light" ? "light" : "dark"];
+	const mode = theme.getColorMode();
+	const bg = ([r, g, b]: readonly number[]) => backgroundAnsi(rgbColor(r, g, b), mode);
+	const out: string[] = [];
+	for (const row of rows) {
+		if (row === "skip") {
+			out.push(theme.fg("dim", `${" ".repeat(numWidth)}   ...`));
+			continue;
+		}
+		const code = row.code ? (highlightCode(row.code, lang)[0] ?? row.code) : "";
+		const colors = row.sign === "+" ? palette.added : row.sign === "-" ? palette.removed : undefined;
+		const base = colors ? bg(colors[0]) : "";
+		const painted = colors ? paint(code, base, bg(colors[1]), row.words) : code;
+		const parts = code ? wrapTextWithAnsi(painted, codeWidth) : [""];
+		parts.forEach((part, k) => {
+			const num = k === 0 ? row.num.padStart(numWidth) : " ".repeat(numWidth);
+			const sign = k === 0 ? row.sign : " ";
+			const gutter = colors ? `${num} ${sign} ` : theme.fg("dim", `${num} ${sign} `);
+			const fill = " ".repeat(Math.max(0, codeWidth - visibleWidth(part)));
+			out.push(colors ? `${base}${gutter}${base}${part}${base}${fill}\x1b[49m` : `${gutter}${part}`);
+		});
+	}
+	return out;
+}
+
 function dot(status: Status, theme: Theme, busy: boolean): string {
 	if (status === "error") return theme.fg("error", DOT);
 	if (status === "done") return theme.fg("success", DOT);
@@ -277,7 +409,7 @@ function resultLines(toolName: string, result: Result, context: ToolRenderContex
 				removed ? `${bold(removed)} ${removed === 1 ? "removal" : "removals"}` : "",
 			].filter(Boolean);
 			const line = counts.length ? `Updated ${theme.bold(path)} with ${counts.join(" and ")}` : `Updated ${theme.bold(path)}`;
-			return body([line, ...(diff ? renderDiff(diff).split("\n") : [])], width, theme);
+			return body([line, ...(diff ? renderEditDiff(diff, str(args.path ?? args.file_path), width, theme) : [])], width, theme);
 		}
 		default: {
 			const lines = output ? plain(output) : [theme.fg("dim", "(No content)")];

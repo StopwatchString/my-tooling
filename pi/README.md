@@ -107,7 +107,10 @@ servers every machine should have here.
   Bash, MCP and other output is cut to 3 lines, and a new file to its first 10.
   Read, grep, find and ls show only a summary ("Read 125 lines"), and a run of
   them with no text in between folds into one line ("Read 3 files"). Edits
-  show "Updated <file> with 1 addition and 1 removal" and pi's diff. MCP tools
+  show "Updated <file> with 1 addition and 1 removal" and the diff the way
+  Claude Code draws it: numbered, syntax-highlighted lines, removed and added
+  ones on red and green bands (its colours, by theme appearance), with the
+  changed words in a stronger shade. MCP tools
   read `server - tool (MCP)(args)`. pi's expand key (`ctrl+o`) or a click on a row
   shows every call in full. Uses pi's `registerToolRenderer`, so it covers
   every tool without patching.
