@@ -117,6 +117,7 @@ generate "$CLANGD_CONFIG" render_concat lang/clangd/config.yaml '# --- %s' '---'
 block "$HOME/.claude/CLAUDE.md" top html render_concat agents/AGENTS.md '<!-- from %s -->'
 block "$PI_DIR/AGENTS.md"       top html render_concat agents/AGENTS.md '<!-- from %s -->'
 json claude/settings.json "$HOME/.claude/settings.json"
+link claude/statusline.sh "$HOME/.claude/statusline.sh"
 
 # Skills (ai/skills/<name>/SKILL.md), linked one by one for both harnesses.
 link_each ai/skills "$HOME/.agents/skills"

@@ -1,4 +1,8 @@
 {
   "model": "opus[1m]",
-  "theme": "dark"
+  "theme": "dark",
+  "statusLine": {
+    "type": "command",
+    "command": "~/.claude/statusline.sh"
+  }
 }

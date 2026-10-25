@@ -110,6 +110,7 @@ the host) overrides a lower one.
 | `lang/clangd/config.yaml` | clangd user config | one YAML document per layer, applied in order |
 | `agents/AGENTS.md` | `~/.claude/CLAUDE.md`, `~/.pi/agent/AGENTS.md` | contents concatenated in order |
 | `claude/settings.json` | `~/.claude/settings.json` | deep-merged JSON |
+| `claude/statusline.sh` | `~/.claude/statusline.sh` | symlink, highest layer wins |
 | `ai/skills/<name>/` | `~/.agents/skills/<name>`, `~/.claude/skills/<name>` | one link per item; same name → later wins + `WARN` |
 | `pi/extensions/<item>` | `~/.pi/agent/extensions/<item>` | one link per item; same name → later wins + `WARN` |
 | `pi/skills/<item>` | `~/.pi/agent/skills/<item>` | one link per item |

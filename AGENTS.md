@@ -49,6 +49,7 @@ lang/clangd/config.yaml   joined into the clangd user config (path per OS)
 agents/AGENTS.md      Global agent instructions, copied into blocks in
                       ~/.claude/CLAUDE.md and ~/.pi/agent/AGENTS.md
 claude/settings.json  merged into ~/.claude/settings.json
+claude/statusline.sh  -> ~/.claude/statusline.sh (Claude Code status line)
 ai/skills/            Agent skills, each linked into ~/.agents/skills (pi)
                       and ~/.claude/skills (Claude Code)
 pi/                   pi coding agent config (formerly ~/dev/pi-harness); see
