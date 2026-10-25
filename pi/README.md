@@ -80,6 +80,14 @@ servers every machine should have here.
   `/fork`, `/clone`, `/llama`, `/tree`, `/export`, `/import` and `/changelog`
   from the `/` menu (`HIDDEN`; typing one still works, pi has no way to
   remove built-ins)
+- `extensions/cd.ts`: `/cd <dir>` moves the conversation to another
+  working directory. pi ties the cwd to the session, so it copies the session
+  into a new one for `<dir>` (filed with that directory's sessions) and
+  switches to it: history kept, tools, system prompt and context files
+  rebuilt for `<dir>`, running tasks stopped. The model gets a note on its
+  next turn. Takes relative paths, `~`, `-` (previous) or nothing (home);
+  tab completes directories. Needs a saved session (not `--no-session`, and
+  not before the first message).
 - `extensions/footer.ts`: replaces pi's two-line footer with one line in the
   style of the Claude Code status line: `user@host:dir` (zsh prompt colors),
   the model with its thinking level, and context fill (`ctx 8%`). The
