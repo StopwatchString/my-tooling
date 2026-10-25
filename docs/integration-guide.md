@@ -114,6 +114,7 @@ the host) overrides a lower one.
 | `ai/skills/<name>/` | `~/.agents/skills/<name>`, `~/.claude/skills/<name>` | one link per item; same name → later wins + `WARN` |
 | `pi/extensions/<item>` | `~/.pi/agent/extensions/<item>` | one link per item; same name → later wins + `WARN` |
 | `pi/skills/<item>` | `~/.pi/agent/skills/<item>` | one link per item |
+| `pi/themes/<item>` | `~/.pi/agent/themes/<item>` | one link per item |
 | `pi/settings.json`, `pi/mcp.json` | `~/.pi/agent/…` | deep-merged JSON |
 
 VS Code paths are under `~/.config/Code/User` on Linux and

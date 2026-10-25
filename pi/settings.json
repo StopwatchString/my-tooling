@@ -4,5 +4,6 @@
   "quietStartup": "header",
   "compaction": {
     "enabled": false
-  }
+  },
+  "theme": "claude-light/claude-dark"
 }

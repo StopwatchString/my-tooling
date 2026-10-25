@@ -1,13 +1,12 @@
 /**
- * Startup header: the pi logo, version, model, working directory and the
- * loaded context files, in place of the built-in one (logo, key hints,
+ * Startup header: the pi logo, version, working directory and the loaded
+ * context files, in place of the built-in one (logo, key hints,
  * onboarding text) and pi's [Context] listing.
  *
  *   ▀▀█  pi v1.4.0
- *   █▀ █ swift · ~/my-tooling · ~/.pi/agent/AGENTS.md, ~/AGENTS.md, AGENTS.md
+ *   █▀ █ ~/my-tooling · ~/.pi/agent/AGENTS.md, ~/AGENTS.md, AGENTS.md
  *
  * - Event `session_start`: installs the header (TUI only).
- * - Event `model_select`: updates the model shown.
  *
  * Context files that don't fit after the directory wrap onto lines of their
  * own. pi's other listings ([Skills], [Extensions], ...) are hidden by
@@ -75,22 +74,17 @@ function contextPath(path: string, cwd: string): string {
 }
 
 export default function (pi: ExtensionAPI) {
-	let model = "no model";
-	let requestRender = () => {};
-
 	pi.on("session_start", async (_event, ctx) => {
 		if (ctx.mode !== "tui") return;
-		if (ctx.model) model = ctx.model.id;
 		const cwd = displayPath(ctx.cwd);
 		const context = contextFiles(ctx).map((path) => contextPath(path, ctx.cwd)).join(", ");
-		ctx.ui.setHeader((tui, theme) => {
-			requestRender = () => tui.requestRender();
+		ctx.ui.setHeader((_tui, theme) => {
 			return {
 				render(width: number): string[] {
 					const [top, bottom] = logoLines(theme);
 					const sep = theme.fg("dim", " · ");
 					const first = `${top} ${theme.bold("pi")} ${theme.fg("dim", `v${VERSION}`)}`;
-					const second = `${bottom} ${theme.fg("accent", model)}${sep}${theme.fg("muted", cwd)}`;
+					const second = `${bottom} ${theme.fg("muted", cwd)}`;
 					const lines = [first, second];
 					if (context) {
 						const inline = `${second}${sep}${theme.fg("dim", context)}`;
@@ -107,10 +101,5 @@ export default function (pi: ExtensionAPI) {
 				invalidate() {},
 			};
 		});
-	});
-
-	pi.on("model_select", async (event) => {
-		model = event.model.id;
-		requestRender();
 	});
 }

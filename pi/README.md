@@ -15,7 +15,7 @@ Formerly the separate `~/dev/pi-harness` repo, which is retired.
 
 | Repo path | In `~/.pi/agent/` | How |
 |---|---|---|
-| `extensions/`, `skills/` | same names | real dirs; each item symlinked; pi auto-loads them |
+| `extensions/`, `skills/`, `themes/` | same names | real dirs; each item symlinked; pi auto-loads them |
 | `mcp.json` | `mcp.json` | **merged**; pi's built-in MCP servers (see below) |
 | `../agents/AGENTS.md` | `AGENTS.md` | copied into a managed block; shared with Claude Code |
 | `settings.json` | `settings.json` | **merged** (see below) |
@@ -41,6 +41,7 @@ the live file has drifted.
 | `defaultModel` | `swift` | its primary model |
 | `quietStartup` | `"header"` | keep the header (`header.ts`, which also lists the context files) but hide pi's startup listings ([Context], [Skills], [Extensions], ...); warnings still show. `pi --verbose` brings the listings back for one run |
 | `compaction.enabled` | `false` | no auto-compaction; run `/compact` by hand when the context fills up |
+| `theme` | `claude-light/claude-dark` | Claude Code's colours (`themes/`), light or dark to match the terminal |
 
 To try a value without committing, edit the live file directly.
 
@@ -72,8 +73,8 @@ servers every machine should have here.
   `https://ai.lab.masonspeck.com` (LAN or WireGuard). socrates itself needs
   neither.
 - `extensions/header.ts`: replaces the startup header (logo, key hints,
-  onboarding text) with the pi logo, version, current model and working
-  directory, followed in grey by the loaded context files (what pi listed
+  onboarding text) with the pi logo, version and working directory
+  (the model is in the footer), followed in grey by the loaded context files (what pi listed
   under `[Context]`). The other listings are off (`quietStartup`, above).
 - `extensions/exit.ts`: `/exit` quits pi. Hides `/quit`, `/share`, `/bug`,
   `/fork`, `/clone`, `/llama`, `/tree`, `/export`, `/import` and `/changelog`
@@ -83,6 +84,30 @@ servers every machine should have here.
   style of the Claude Code status line: `user@host:dir` (zsh prompt colors),
   the model with its thinking level, and context fill (`ctx 8%`). Extension
   statuses still get a second line.
+- `extensions/editor.ts`: the input box in the style of Claude Code's prompt:
+  grey rules above and below (instead of rules coloured by thinking level)
+  and a `>` before the text. In bash mode (`!`), the rules and the `>` take the
+  bash-mode colour. pi's `editorPaddingX` setting is ignored.
+- `extensions/user-message.ts`: sent messages in the style of Claude Code's
+  transcript: `> ` before the text on a one-line `userMessageBg` band,
+  instead of pi's padded block. pi has no
+  hook for this, so it patches the exported `UserMessageComponent`; check it
+  still works after a pi upgrade.
+- `extensions/working.ts`: Claude Code's working status. While pi works:
+  `✢ Gesticulating… (13s · ↓ 624 tokens · esc to interrupt)` with Claude
+  Code's spinner and verbs; when done, `✻ Churned for 19s · ↓ 1.2k tokens ·
+  done 12:04 AM` stays in the transcript (a custom entry, not sent to the
+  model). Tokens are estimated while streaming and replaced by the
+  provider's count per message. Thinking is never shown: it patches the
+  exported `AssistantMessageComponent` to drop thinking blocks (check after
+  a pi upgrade).
+- `themes/claude-dark.json`, `claude-light.json`: Claude Code's dark and
+  light palettes (taken from its binary, v2.1.310), mapped onto pi's colour
+  roles: lavender inline code, links and accent (Claude Code's own accent,
+  its orange, is left out), grey prompt rules, pink bash mode, no panels
+  behind tool calls, and the code highlighting Claude Code uses (Monokai
+  Extended on dark, GitHub on light). Var names follow Claude Code's theme
+  keys.
 - `skills/`: empty (shared skills live in `../ai/skills/`)
 
 Everything else is pi's stock behavior.

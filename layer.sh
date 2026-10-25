@@ -129,7 +129,7 @@ json pi/mcp.json         "$PI_DIR/mcp.json"
 json pi/settings.json    "$PI_DIR/settings.json" \
   'if .packages then .packages |= map(select(tostring | test("pi-harness") | not))
      | if .packages == [] then del(.packages) else . end else . end'
-for _d in extensions skills; do
+for _d in extensions skills themes; do
   link_each "pi/$_d" "$PI_DIR/$_d"
 done
 unset _d

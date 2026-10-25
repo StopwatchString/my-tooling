@@ -53,7 +53,7 @@ claude/statusline.sh  -> ~/.claude/statusline.sh (Claude Code status line)
 ai/skills/            Agent skills, each linked into ~/.agents/skills (pi)
                       and ~/.claude/skills (Claude Code)
 pi/                   pi coding agent config (formerly ~/dev/pi-harness); see
-                      pi/README.md. extensions/ skills/ items are linked into
+                      pi/README.md. extensions/ skills/ themes/ items are linked into
                       ~/.pi/agent/<dir>/; settings.json, mcp.json are merged.
                       Kept minimal on purpose: the home model server, MCP
                       servers, skills. Machine-specific bits stay untracked.
