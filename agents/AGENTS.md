@@ -21,6 +21,12 @@ Project-level AGENTS.md / CLAUDE.md files take precedence for project specifics.
 - Prefer small, focused changes. Ask before large refactors or anything
   destructive.
 - Run the relevant checks before calling work done.
+- In a git repo, implement in a worktree by default, not in the main
+  checkout: `git worktree add <repo>/worktrees/<name> -b <branch>`. Keep
+  `worktrees/` out of git status with a line in
+  `$(git rev-parse --git-common-dir)/info/exclude`, not `.gitignore`. Leave
+  the worktree in place when done; the owner merges and removes it. Skip
+  this only when told to, or when the repo's own AGENTS.md says otherwise.
 - Commit only when told (a repo's own AGENTS.md may grant standing
   permission). Never push unless asked.
 - Never mention the model or agent in commit messages: no `Co-Authored-By`
