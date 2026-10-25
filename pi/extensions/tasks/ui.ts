@@ -4,7 +4,7 @@
  *
  * The viewer ends with the main footer's status line (`footer.ts`, through
  * `globalThis`), here for the task: its directory, and an agent's model and
- * context fill.
+ * context fill, under the context bar (`context-bar.ts`) if that is loaded.
  */
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { Theme } from "@earendil-works/pi-coding-agent";
@@ -25,6 +25,7 @@ type StatusLine = (
 	width: number,
 	theme: Theme,
 ) => string;
+type Bar = (percent: number | null | undefined, width: number, theme: Theme) => string;
 const FOOTER = Symbol.for("my-tooling.footer");
 
 type Content = { type: string; text?: string; name?: string; arguments?: Record<string, unknown> };
@@ -223,16 +224,17 @@ export class TaskView implements Component {
 		return lines.length ? lines : [this.theme.fg("dim", "(no output yet)")];
 	}
 
-	private status(width: number): string {
-		const line = (globalThis as Record<symbol, { line?: StatusLine } | undefined>)[FOOTER]?.line;
-		if (!line) return "";
+	/** The footer's lines for this task: the context bar if loaded, then the status line. */
+	private status(width: number): string[] {
+		const footer = (globalThis as Record<symbol, { line?: StatusLine; bar?: Bar } | undefined>)[FOOTER];
+		if (!footer?.line) return [];
 		const task = this.task;
 		const live = task.kind === "agent" ? task.live : undefined;
-		return line(
-			{ cwd: task.cwd, model: live?.model, thinking: live?.thinkingLevel, percent: live?.getContextUsage()?.percent },
-			width,
-			this.theme,
-		);
+		const percent = live?.getContextUsage()?.percent;
+		return [
+			...(footer.bar && live ? [footer.bar(percent, width, this.theme)] : []),
+			footer.line({ cwd: task.cwd, model: live?.model, thinking: live?.thinkingLevel, percent }, width, this.theme),
+		];
 	}
 
 	render(width: number): string[] {
@@ -245,7 +247,7 @@ export class TaskView implements Component {
 		const status = this.status(width);
 		// The whole screen: title, header, rule, body, rule, hint, status line.
 		const height = Math.max(12, this.tui.terminal.rows);
-		this.bodyHeight = Math.max(3, height - head.length - 4 - (status ? 1 : 0));
+		this.bodyHeight = Math.max(3, height - head.length - 4 - status.length);
 		const body = this.body(inner);
 		const maxTop = Math.max(0, body.length - this.bodyHeight);
 		if (this.follow) this.top = maxTop;
@@ -261,7 +263,7 @@ export class TaskView implements Component {
 			...visible.map(row),
 			rule(),
 			row(t.fg("dim", hint + position)),
-			...(status ? [status] : []),
+			...status,
 		];
 	}
 

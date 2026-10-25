@@ -86,6 +86,11 @@ servers every machine should have here.
   permission mode (`modes.ts`) sits at the right; other extension statuses
   still get a second line. The task view (`tasks/`) ends with the same line
   for the agent it shows.
+- `extensions/context-bar.ts` (experimental): a bar the width of the
+  terminal above the footer's line that fills with the context, shading from
+  green through yellow (70%) to red (90%). The task view shows it for an
+  agent. Delete the file and `/reload` to drop it; the footer draws it only
+  while it is loaded.
 - `extensions/editor.ts`: the input box in the style of Claude Code's prompt:
   grey rules above and below (instead of rules coloured by thinking level)
   and a `>` before the text. In bash mode (`!`), the rules and the `>` take the
