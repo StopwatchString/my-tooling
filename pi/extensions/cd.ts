@@ -5,9 +5,10 @@
  * system prompt and context files from it when a session opens. So `/cd`
  * copies the current session into a new one for `<dir>` (stored with that
  * directory's sessions, parent = the old file) and switches to it. The
- * history is kept; tasks end, as on any session switch. It also chdirs the
- * process, for paths pi resolves against it, and adds a note for the model
- * to the conversation.
+ * history is kept; tasks end, as on any session switch. With nothing saved
+ * yet (no messages), it switches to a fresh session for `<dir>` instead. It
+ * also chdirs the process, for paths pi resolves against it, and adds a note
+ * for the model to the conversation.
  *
  * `<dir>` may be relative, `~`-prefixed, `-` (the previous one) or empty
  * (home). Directory names complete on tab.
@@ -94,34 +95,43 @@ export default function (pi: ExtensionAPI) {
 				ctx.ui.notify("cd: wait for the agent to finish (or press esc)", "error");
 				return;
 			}
+			// Only --no-session has no file path; a new session has one, unwritten.
 			const sessionFile = ctx.sessionManager.getSessionFile();
-			if (!sessionFile || !existsSync(sessionFile)) {
-				// Nothing to copy yet (no messages) or --no-session.
-				ctx.ui.notify("cd: needs a saved session; send a message first, or restart pi there", "error");
+			if (!sessionFile) {
+				ctx.ui.notify("cd: not with --no-session; restart pi there", "error");
 				return;
 			}
 
 			// Keep a custom --session-dir; otherwise store with target's sessions.
 			const current = ctx.sessionManager.getSessionDir();
 			const sessionDir = dirname(current) === join(getAgentDir(), "sessions") ? undefined : current;
-			const copy = SessionManager.forkFrom(sessionFile, target, sessionDir).getSessionFile();
+			// Nothing saved yet: a fresh session's path (pi writes it with the
+			// first reply), opened with the process cwd, so chdir first.
+			const copy = existsSync(sessionFile)
+				? SessionManager.forkFrom(sessionFile, target, sessionDir).getSessionFile()
+				: SessionManager.create(target, sessionDir).getSessionFile();
 			if (!copy) {
 				ctx.ui.notify("cd: couldn't copy the session", "error");
 				return;
 			}
 
-			await ctx.switchSession(copy, {
-				withSession: async (next) => {
-					state.previous = from;
-					process.chdir(target);
-					await next.sendMessage({
-						customType: "cd",
-						content: `The working directory changed from ${from} to ${target}. Relative paths now resolve against ${target}.`,
-						display: true,
-						details: { from, to: target } satisfies Details,
-					});
-				},
-			});
+			process.chdir(target);
+			let cancelled = true;
+			try {
+				({ cancelled } = await ctx.switchSession(copy, {
+					withSession: async (next) => {
+						state.previous = from;
+						await next.sendMessage({
+							customType: "cd",
+							content: `The working directory changed from ${from} to ${target}. Relative paths now resolve against ${target}.`,
+							display: true,
+							details: { from, to: target } satisfies Details,
+						});
+					},
+				}));
+			} finally {
+				if (cancelled) process.chdir(from);
+			}
 		},
 	});
 }
