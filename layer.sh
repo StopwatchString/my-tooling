@@ -120,6 +120,8 @@ json claude/settings.json "$HOME/.claude/settings.json"
 link claude/statusline.sh "$HOME/.claude/statusline.sh"
 
 # Skills (ai/skills/<name>/SKILL.md), linked one by one for both harnesses.
+# An item may itself be a symlink into vendor/ (e.g. bento-slides); it
+# dangles until the submodules step below has checked vendor/ out.
 link_each ai/skills "$HOME/.agents/skills"
 link_each ai/skills "$HOME/.claude/skills"
 
@@ -149,7 +151,7 @@ base_nvim_install()    { "$DOTFILES/scripts/install-nvim.sh"; }
 base_gterm_ok()        { "$DOTFILES/scripts/gnome-terminal-profile.sh" check; }
 base_gterm_load()      { "$DOTFILES/scripts/gnome-terminal-profile.sh" load; }
 
-step "zsh plugin submodules" base_submodules_ok base_submodules_init
+step "git submodules"        base_submodules_ok base_submodules_init
 step "fonts + terminal font" base_fonts_ok      base_fonts_install
 step "Neovim nightly"        base_nvim_ok       base_nvim_install
 if is_linux; then

@@ -51,7 +51,12 @@ agents/AGENTS.md      Global agent instructions, copied into blocks in
 claude/settings.json  merged into ~/.claude/settings.json
 claude/statusline.sh  -> ~/.claude/statusline.sh (Claude Code status line)
 ai/skills/            Agent skills, each linked into ~/.agents/skills (pi)
-                      and ~/.claude/skills (Claude Code)
+                      and ~/.claude/skills (Claude Code). bento-slides is a
+                      symlink to the skill shipped in vendor/bento
+vendor/               Third-party repos as shallow git submodules, checked
+                      out by the setup step: bento (nyblnet/bento, single-file
+                      .bento.html office apps). Update with
+                      `git submodule update --remote --depth 1 vendor/<name>`
 pi/                   pi coding agent config (formerly ~/dev/pi-harness); see
                       pi/README.md. extensions/ skills/ themes/ items are linked into
                       ~/.pi/agent/<dir>/; settings.json, mcp.json are merged.
@@ -84,7 +89,7 @@ nixos/templates/      Reference NixOS configuration.nix, not linked
     live file, for files the app also writes. Removes keys a layer stops
     setting; a `null` value deletes the key, so a higher layer can drop a
     lower layer's key. Needs `jq`.
-  - `step <name> <check fn> <apply fn>`: setup that isn't a file (zsh plugin
+  - `step <name> <check fn> <apply fn>`: setup that isn't a file (git
     submodules, fonts + terminal font, Neovim nightly, GNOME Terminal
     profile). The apply only runs when the check fails. Scripts that back a
     step take a `--check`/`check` mode that changes nothing and exits 0 when

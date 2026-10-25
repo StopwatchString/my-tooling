@@ -6,3 +6,7 @@
 	path = shell/zsh/plugins/zsh-autosuggestions
 	url = https://github.com/zsh-users/zsh-autosuggestions.git
 	shallow = true
+[submodule "vendor/bento"]
+	path = vendor/bento
+	url = https://github.com/nyblnet/bento.git
+	shallow = true
