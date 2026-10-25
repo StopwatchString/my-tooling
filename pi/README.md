@@ -102,7 +102,8 @@ servers every machine should have here.
     `pi` (pi's own `syntax*` colours on a tint of the terminal). A theme is a
     JSON file in `themes/` (format in `themes.ts`): panel colours plus
     tree-sitter capture names to colours; highlight.js blocks are mapped
-    onto the same colours.
+    onto the same colours. Only the panels use it: inline `code` and the
+    rest of the text keep pi's theme.
   - Copying a block from the terminal takes the borders
   and numbers along. pi has no hook for this, so it patches pi-tui's
   `Markdown` (check after a pi upgrade); delete the directory to go back to

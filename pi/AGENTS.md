@@ -73,6 +73,11 @@ pi -p --no-session "reply: ok"                                      # full setup
 
 After the checks pass, ask the user to `/reload` and try the feature themselves.
 
+The `pi -p` checks sometimes hang past two minutes and then pass in a
+second or two when rerun (seen several times; cause not found, possibly the
+`pi` shell function's 1Password lookup). Rerun with a timeout before
+suspecting the extension, and don't commit until they have passed.
+
 ## Notes for picking this up
 
 The Claude Code look and the agent features (`tools.ts`, `tasks/`,

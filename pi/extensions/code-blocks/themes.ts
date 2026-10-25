@@ -204,12 +204,18 @@ function remapper(pi: Theme, plain: string, color: (capture: string) => string |
 		});
 }
 
+/** A light tint of the terminal's background, from pi's theme: `pi` panels and inline code. */
+export function tint(pi: Theme): string {
+	const colors = pi.colors;
+	// toolPendingBg is "" in the Claude themes: the terminal's own background.
+	return backgroundAnsi(mixColors(colors.toolPendingBg, colors.text, TINT, "srgb"), pi.getColorMode());
+}
+
 function piStyle(pi: Theme): Style {
 	const mode = pi.getColorMode();
 	const colors = pi.colors;
 	return {
-		// toolPendingBg is "" in the Claude themes: the terminal's own background.
-		background: backgroundAnsi(mixColors(colors.toolPendingBg, colors.text, TINT, "srgb"), mode),
+		background: tint(pi),
 		plain: "\x1b[39m",
 		lineNumber: pi.getFgAnsi("dim"),
 		guide: pi.getFgAnsi("dim"),
@@ -238,7 +244,7 @@ function fileStyle(pi: Theme, file: ThemeFile): Style {
 		return lookup(syntax, capture);
 	};
 	return {
-		background: file.background ? backgroundAnsi(parseColor(file.background), mode) : piStyle(pi).background,
+		background: file.background ? backgroundAnsi(parseColor(file.background), mode) : tint(pi),
 		plain,
 		lineNumber: fg(file.lineNumber),
 		guide: fg(file.guide),

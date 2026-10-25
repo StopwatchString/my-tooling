@@ -23,7 +23,8 @@
  * line), indent guides, and brackets coloured by depth (an unmatched one in
  * the theme's error colour). Brackets in
  * strings and comments are left alone, by a rough per-language scan. Long
- * lines wrap inside the panel. Inline `code` gets the panel's background.
+ * lines wrap inside the panel. Inline `code` gets a light tint of the
+ * terminal's background (pi's theme, not the code theme).
  *
  * pi has no hook for this, so it patches pi-tui's exported Markdown
  * component's private `renderToken` for `code` tokens. The original is kept
@@ -35,7 +36,7 @@ import type { ExtensionAPI, ExtensionUIContext, Theme } from "@earendil-works/pi
 import { highlightCode } from "@earendil-works/pi-coding-agent";
 import { Markdown, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import type { TUI } from "@earendil-works/pi-tui";
-import { chosenTheme, currentStyle, DEFAULT_THEME, knownTheme, saveTheme, themeChoices } from "./themes.ts";
+import { chosenTheme, currentStyle, DEFAULT_THEME, knownTheme, saveTheme, themeChoices, tint } from "./themes.ts";
 import { highlight, load } from "./treesitter.ts";
 
 const ORIGINAL = Symbol.for("my-tooling.code-blocks.renderToken");
@@ -223,7 +224,7 @@ proto.renderToken = function (this: MarkdownInternals, token, width, nextTokenTy
 		// A band behind the whole text (sent messages) would be cut by the tint's end.
 		if (!this.defaultTextStyle?.bgColor) {
 			const code = this.theme.code;
-			this.theme = { ...this.theme, code: (text) => (ui ? keepBackground(code(text), currentStyle(ui.theme).background) + "\x1b[49m" : code(text)) };
+			this.theme = { ...this.theme, code: (text) => (ui ? keepBackground(code(text), tint(ui.theme)) + "\x1b[49m" : code(text)) };
 		}
 	}
 	if (theme && token.type === "code") {
