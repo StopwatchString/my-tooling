@@ -90,7 +90,7 @@ servers every machine should have here.
   as a tinted panel with the language in its top border instead of ```
   fences: syntax highlighting, line numbers (blocks of more than one line),
   indent guides, brackets coloured by depth (unmatched ones red), long lines
-  wrapped inside the panel. Inline `code` gets the same tint behind it.
+  wrapped inside the panel.
   Highlighting comes from tree-sitter (`treesitter.ts`) for bash, C, C++,
   Go, JavaScript, JSON, Lua, Python, Rust, TSX and TypeScript, and from pi's
   highlight.js for anything else (and for the moment after start-up while
@@ -103,7 +103,7 @@ servers every machine should have here.
     JSON file in `themes/` (format in `themes.ts`): panel colours plus
     tree-sitter capture names to colours; highlight.js blocks are mapped
     onto the same colours. Only the panels use it: inline `code` and the
-    rest of the text keep pi's theme.
+    rest of the text stay as pi draws them.
   - Copying a block from the terminal takes the borders
   and numbers along. pi has no hook for this, so it patches pi-tui's
   `Markdown` (check after a pi upgrade); delete the directory to go back to

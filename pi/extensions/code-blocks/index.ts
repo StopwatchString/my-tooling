@@ -23,8 +23,8 @@
  * line), indent guides, and brackets coloured by depth (an unmatched one in
  * the theme's error colour). Brackets in
  * strings and comments are left alone, by a rough per-language scan. Long
- * lines wrap inside the panel. Inline `code` gets a light tint of the
- * terminal's background (pi's theme, not the code theme).
+ * lines wrap inside the panel. Inline `code` and the rest of the text are
+ * left as pi draws them.
  *
  * pi has no hook for this, so it patches pi-tui's exported Markdown
  * component's private `renderToken` for `code` tokens. The original is kept
@@ -36,13 +36,12 @@ import type { ExtensionAPI, ExtensionUIContext, Theme } from "@earendil-works/pi
 import { highlightCode } from "@earendil-works/pi-coding-agent";
 import { Markdown, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import type { TUI } from "@earendil-works/pi-tui";
-import { chosenTheme, currentStyle, DEFAULT_THEME, knownTheme, saveTheme, themeChoices, tint } from "./themes.ts";
+import { chosenTheme, currentStyle, DEFAULT_THEME, knownTheme, saveTheme, themeChoices } from "./themes.ts";
 import { highlight, load } from "./treesitter.ts";
 
 const ORIGINAL = Symbol.for("my-tooling.code-blocks.renderToken");
 const ORIGINAL_RENDER = Symbol.for("my-tooling.code-blocks.render");
 const GENERATION = Symbol.for("my-tooling.code-blocks.generation");
-const TINTED = Symbol.for("my-tooling.code-blocks.tinted");
 const TAB = "    ";
 const OPEN = "([{";
 const CLOSE = ")]}";
@@ -54,12 +53,9 @@ const NO_SINGLE = new Set(["rust", "rs", "ocaml", "ml", "lisp", "clojure", "sche
 
 type Token = { type: string; text: string; lang?: string };
 type MarkdownInternals = {
-	theme: { code: (text: string) => string };
-	defaultTextStyle?: { bgColor?: unknown };
 	renderToken(token: Token, width: number, nextTokenType?: string, styleContext?: unknown): string[];
 	render(width: number): string[];
 	invalidate(): void;
-	[TINTED]?: true;
 	[GENERATION]?: number;
 };
 
@@ -219,14 +215,6 @@ proto.render = function (this: MarkdownInternals, width) {
 
 proto.renderToken = function (this: MarkdownInternals, token, width, nextTokenType, styleContext) {
 	const theme = ui?.theme;
-	if (theme && !this[TINTED]) {
-		this[TINTED] = true;
-		// A band behind the whole text (sent messages) would be cut by the tint's end.
-		if (!this.defaultTextStyle?.bgColor) {
-			const code = this.theme.code;
-			this.theme = { ...this.theme, code: (text) => (ui ? keepBackground(code(text), tint(ui.theme)) + "\x1b[49m" : code(text)) };
-		}
-	}
 	if (theme && token.type === "code") {
 		const lines = renderPanel(token, width, theme);
 		if (lines.length) {

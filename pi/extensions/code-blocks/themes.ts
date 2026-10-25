@@ -204,8 +204,8 @@ function remapper(pi: Theme, plain: string, color: (capture: string) => string |
 		});
 }
 
-/** A light tint of the terminal's background, from pi's theme: `pi` panels and inline code. */
-export function tint(pi: Theme): string {
+/** A light tint of the terminal's background, from pi's theme (`pi` panels). */
+function tint(pi: Theme): string {
 	const colors = pi.colors;
 	// toolPendingBg is "" in the Claude themes: the terminal's own background.
 	return backgroundAnsi(mixColors(colors.toolPendingBg, colors.text, TINT, "srgb"), pi.getColorMode());
