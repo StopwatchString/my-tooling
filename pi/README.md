@@ -89,8 +89,10 @@ servers every machine should have here.
 - `extensions/context-bar.ts` (experimental): a bar the width of the
   terminal above the footer's line that fills with the context, shading from
   green through yellow (70%) to red (90%). The task view shows it for an
-  agent. Delete the file and `/reload` to drop it; the footer draws it only
-  while it is loaded.
+  agent. `/context-bar` toggles it (`on`/`off` to set it), saved in
+  `~/.pi/agent/context-bar.json` for later sessions; on by default. Delete
+  the file and `/reload` to drop it; the footer draws it only while it is
+  loaded.
 - `extensions/editor.ts`: the input box in the style of Claude Code's prompt:
   grey rules above and below (instead of rules coloured by thinking level)
   and a `>` before the text. In bash mode (`!`), the rules and the `>` take the
@@ -194,7 +196,7 @@ servers every machine should have here.
 Everything else is pi's stock behavior.
 
 Not tracked (machine-local or secret, stay in `~/.pi/agent/`): `auth.json`,
-`models.json`, `models-store.json`, `trust.json`, `modes.json`, `sessions/`, `bin/`, `install/`.
+`models.json`, `models-store.json`, `trust.json`, `modes.json`, `context-bar.json`, `sessions/`, `bin/`, `install/`.
 
 ## Development
 
