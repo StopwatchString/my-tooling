@@ -109,8 +109,8 @@ servers every machine should have here.
   them with no text in between folds into one line ("Read 3 files"). Edits
   show "Updated <file> with 1 addition and 1 removal" and the diff the way
   Claude Code draws it: numbered, syntax-highlighted lines, removed and added
-  ones on red and green bands (its colours, by theme appearance), with the
-  changed words in a stronger shade. MCP tools
+  ones on dark red and green bands (the colours of its own diff view, dark or
+  light by theme), with the changed words in a stronger shade. MCP tools
   read `server - tool (MCP)(args)`. pi's expand key (`ctrl+o`) or a click on a row
   shows every call in full. Uses pi's `registerToolRenderer`, so it covers
   every tool without patching.

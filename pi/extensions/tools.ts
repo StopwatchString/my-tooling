@@ -33,7 +33,7 @@ import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { ExtensionAPI, Theme, ToolRenderers } from "@earendil-works/pi-coding-agent";
 import { getLanguageFromPath, highlightCode, keyText } from "@earendil-works/pi-coding-agent";
 import type { Component } from "@earendil-works/pi-tui";
-import { backgroundAnsi, rgbColor, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import { backgroundAnsi, foregroundAnsi, rgbColor, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import { homedir } from "node:os";
 import { isAbsolute, relative } from "node:path";
 
@@ -144,10 +144,17 @@ function body(text: string[], width: number, theme: Theme, max?: number, keepEnd
 }
 
 /** The bullet, blinking while the call runs. */
-// Claude Code's diff backgrounds: [line, changed words], per appearance.
+// Claude Code's diff colours (its color-diff view, not its theme's diff
+// tokens): [line background, changed-word background, +/- sign], per appearance.
 const DIFF_COLORS = {
-	dark: { added: [[34, 92, 43], [56, 166, 96]], removed: [[122, 41, 54], [179, 89, 107]] },
-	light: { added: [[105, 219, 124], [47, 157, 68]], removed: [[255, 168, 180], [209, 69, 75]] },
+	dark: {
+		added: [[2, 40, 0], [4, 71, 0], [80, 200, 80]],
+		removed: [[61, 1, 0], [92, 2, 0], [220, 90, 90]],
+	},
+	light: {
+		added: [[220, 255, 220], [178, 255, 178], [36, 138, 61]],
+		removed: [[255, 220, 220], [255, 199, 199], [207, 34, 46]],
+	},
 } as const;
 // Word highlights only for lines that mostly stayed the same.
 const WORD_DIFF_MAX_CHANGE = 0.5;
@@ -251,6 +258,7 @@ function renderEditDiff(diff: string, path: string, width: number, theme: Theme)
 	const palette = DIFF_COLORS[theme.appearance === "light" ? "light" : "dark"];
 	const mode = theme.getColorMode();
 	const bg = ([r, g, b]: readonly number[]) => backgroundAnsi(rgbColor(r, g, b), mode);
+	const fg = ([r, g, b]: readonly number[]) => foregroundAnsi(rgbColor(r, g, b), mode);
 	const out: string[] = [];
 	for (const row of rows) {
 		if (row === "skip") {
@@ -265,7 +273,7 @@ function renderEditDiff(diff: string, path: string, width: number, theme: Theme)
 		parts.forEach((part, k) => {
 			const num = k === 0 ? row.num.padStart(numWidth) : " ".repeat(numWidth);
 			const sign = k === 0 ? row.sign : " ";
-			const gutter = colors ? `${num} ${sign} ` : theme.fg("dim", `${num} ${sign} `);
+			const gutter = colors ? `${theme.fg("dim", num)} ${fg(colors[2])}${sign}\x1b[39m ` : theme.fg("dim", `${num} ${sign} `);
 			const fill = " ".repeat(Math.max(0, codeWidth - visibleWidth(part)));
 			out.push(colors ? `${base}${gutter}${base}${part}${base}${fill}\x1b[49m` : `${gutter}${part}`);
 		});
