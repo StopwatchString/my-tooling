@@ -10,7 +10,7 @@ still applies; this file adds the pi specifics.
 ## Layout
 
 ```
-extensions/       pi extensions (home-models, header, footer) -> ~/.pi/agent/extensions
+extensions/       pi extensions, one per .ts file (README)   -> ~/.pi/agent/extensions
 skills/           skills, one directory each with SKILL.md  -> ~/.pi/agent/skills
 mcp.json          MCP servers, merged into the live mcp.json
 settings.json     default provider/model, merged into the live settings.json
