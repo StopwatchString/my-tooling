@@ -1,0 +1,52 @@
+# Pinned tree-sitter files for code-blocks/, fetched by ./fetch.sh.
+# One per line: <path under vendor/> <sha256> <url>.
+# Never fetched at runtime: pi reads only the copies checked in next to this file.
+#
+# web-tree-sitter 0.27.0 (npm, MIT): sha256 of the files in the npm tarball,
+#   whose sha512 matched npm's published integrity; served file by file from unpkg.
+# Grammars: the .wasm attached to each grammar's GitHub release. sha256 is
+#   GitHub's asset digest where it has one; for typescript, tsx, cpp and json
+#   (no digest) it matched the .wasm inside the same version's npm package.
+# Queries and licences: raw files at the commit each release tag points to.
+#   typescript uses tree-sitter-javascript 0.23.1's queries and cpp
+#   tree-sitter-c 0.23.6's, the versions those grammars depend on.
+web-tree-sitter/web-tree-sitter.js 7c49e3c1d87e24e0bb4c2def909d17154dfde281f5f8280225450090bb4b8110 https://unpkg.com/web-tree-sitter@0.27.0/web-tree-sitter.js
+web-tree-sitter/web-tree-sitter.d.ts 7755148edc3bc39c53bd00d040f65d4939bdfa4859ad4ab045f5afbafadbf795 https://unpkg.com/web-tree-sitter@0.27.0/web-tree-sitter.d.ts
+web-tree-sitter/web-tree-sitter.wasm c03bccdc3b448a32848f5ae327e209c982bbb0840d43eec8bc2d5759544a1ed3 https://unpkg.com/web-tree-sitter@0.27.0/web-tree-sitter.wasm
+web-tree-sitter/LICENSE c5cfb43042b6b72045f4ba997834d0a7786d2793d91680868b5815b39f14fc78 https://unpkg.com/web-tree-sitter@0.27.0/LICENSE
+grammars/tree-sitter-bash.wasm 8292919c88a0f7d3fb31d0cd0253ca5a9531bc1ede82b0537f2c63dd8abe6a7a https://github.com/tree-sitter/tree-sitter-bash/releases/download/v0.25.1/tree-sitter-bash.wasm
+grammars/tree-sitter-c.wasm 83e8d7902b9d7f8c7c5cd4bd9acb5c7eb5faf42c09f85546b183964d3b5f48f9 https://github.com/tree-sitter/tree-sitter-c/releases/download/v0.24.2/tree-sitter-c.wasm
+grammars/tree-sitter-cpp.wasm 174eb0deb75b2ec7881bcacda9f995648d8e683956e5c2267e69ab6dc503fcbf https://github.com/tree-sitter/tree-sitter-cpp/releases/download/v0.23.4/tree-sitter-cpp.wasm
+grammars/tree-sitter-go.wasm 9504573f352b20be7f2f1911754d710622aedc15afff16d5ed8fb5645681aee7 https://github.com/tree-sitter/tree-sitter-go/releases/download/v0.25.0/tree-sitter-go.wasm
+grammars/tree-sitter-javascript.wasm 5fb488d0cabb4775a594bab85682de5ad6ce83c0d6ac997a9f82dd084d571240 https://github.com/tree-sitter/tree-sitter-javascript/releases/download/v0.25.0/tree-sitter-javascript.wasm
+grammars/tree-sitter-json.wasm d2119fb98d5912719b13f9458574f8608d2d29dfbe45f6be1f860ea1fe2a2405 https://github.com/tree-sitter/tree-sitter-json/releases/download/v0.24.8/tree-sitter-json.wasm
+grammars/tree-sitter-lua.wasm df08a1704e504c70b8dba4a3e6f8e0c99a4fb94e1b1693d2969f53141d09f0d4 https://github.com/tree-sitter-grammars/tree-sitter-lua/releases/download/v0.5.0/tree-sitter-lua.wasm
+grammars/tree-sitter-python.wasm 16108b50df4ee9a30168794252ab55e7c93bfc5765d7fa0aa3e335752c515f47 https://github.com/tree-sitter/tree-sitter-python/releases/download/v0.25.0/tree-sitter-python.wasm
+grammars/tree-sitter-rust.wasm 24c89bd9252255e4aebbcbd7d2d308bd92c86dd95a130fdc80efa49577b8d738 https://github.com/tree-sitter/tree-sitter-rust/releases/download/v0.24.2/tree-sitter-rust.wasm
+grammars/tree-sitter-tsx.wasm 79e5da75ea62855a0cd67177685f0164eac87d5f630b3cbe1e0a099751ad30f8 https://github.com/tree-sitter/tree-sitter-typescript/releases/download/v0.23.2/tree-sitter-tsx.wasm
+grammars/tree-sitter-typescript.wasm 778025db5a8be0e70f8ccc3671e486dfeddd048c25d9e8a70c26de2e1bf6f97d https://github.com/tree-sitter/tree-sitter-typescript/releases/download/v0.23.2/tree-sitter-typescript.wasm
+licenses/tree-sitter-bash.LICENSE 49bf33cf78ef5897e4e161ce1517df7de1ae5042a65b6bcfd44401e0fc606559 https://raw.githubusercontent.com/tree-sitter/tree-sitter-bash/a06c2e4415e9bc0346c6b86d401879ffb44058f7/LICENSE
+licenses/tree-sitter-c.LICENSE 2e0110e07abef7c2548b26ec9d6969775617ca539a0dc8dbeeb14d6452c711d1 https://raw.githubusercontent.com/tree-sitter/tree-sitter-c/b780e47fc780ddc8da13afa35a3f4ed5c157823d/LICENSE
+licenses/tree-sitter-cpp.LICENSE 2e0110e07abef7c2548b26ec9d6969775617ca539a0dc8dbeeb14d6452c711d1 https://raw.githubusercontent.com/tree-sitter/tree-sitter-cpp/f41e1a044c8a84ea9fa8577fdd2eab92ec96de02/LICENSE
+licenses/tree-sitter-go.LICENSE 2e0110e07abef7c2548b26ec9d6969775617ca539a0dc8dbeeb14d6452c711d1 https://raw.githubusercontent.com/tree-sitter/tree-sitter-go/1547678a9da59885853f5f5cc8a99cc203fa2e2c/LICENSE
+licenses/tree-sitter-javascript.LICENSE 2e0110e07abef7c2548b26ec9d6969775617ca539a0dc8dbeeb14d6452c711d1 https://raw.githubusercontent.com/tree-sitter/tree-sitter-javascript/44c892e0be055ac465d5eeddae6d3e194424e7de/LICENSE
+licenses/tree-sitter-json.LICENSE 2e0110e07abef7c2548b26ec9d6969775617ca539a0dc8dbeeb14d6452c711d1 https://raw.githubusercontent.com/tree-sitter/tree-sitter-json/ee35a6ebefcef0c5c416c0d1ccec7370cfca5a24/LICENSE
+licenses/tree-sitter-lua.LICENSE 9a32b02e4c917b1ce6b5e79d8ea81e25cefd7f27d89c7235f2afb262c06cf32e https://raw.githubusercontent.com/tree-sitter-grammars/tree-sitter-lua/10fe0054734eec83049514ea2e718b2a56acd0c9/LICENSE.md
+licenses/tree-sitter-python.LICENSE d724405ce238a22c0d35769c5a36b386ad5958192efe8bbb304fb2896254575f https://raw.githubusercontent.com/tree-sitter/tree-sitter-python/293fdc02038ee2bf0e2e206711b69c90ac0d413f/LICENSE
+licenses/tree-sitter-rust.LICENSE 31d5b6f4243d5c7c6e1c4ebbbb9f6407bd1457a08bcc4f706521710341acba36 https://raw.githubusercontent.com/tree-sitter/tree-sitter-rust/77a3747266f4d621d0757825e6b11edcbf991ca5/LICENSE
+licenses/tree-sitter-typescript.LICENSE 49bf33cf78ef5897e4e161ce1517df7de1ae5042a65b6bcfd44401e0fc606559 https://raw.githubusercontent.com/tree-sitter/tree-sitter-typescript/f975a621f4e7f532fe322e13c4f79495e0a7b2e7/LICENSE
+queries/tree-sitter-bash@0.25.1/highlights.scm b74220d954f485b7626d2b2b61f37b522e12eb1830803e388e57dd797dc99f11 https://raw.githubusercontent.com/tree-sitter/tree-sitter-bash/a06c2e4415e9bc0346c6b86d401879ffb44058f7/queries/highlights.scm
+queries/tree-sitter-c@0.23.6/highlights.scm 3378d854dda695b2b282b9468247524ed4271ef74af691033d2e36883379409c https://raw.githubusercontent.com/tree-sitter/tree-sitter-c/ec69f91b23dd8630d68710b911d77127146ff7ef/queries/highlights.scm
+queries/tree-sitter-c@0.24.2/highlights.scm 3378d854dda695b2b282b9468247524ed4271ef74af691033d2e36883379409c https://raw.githubusercontent.com/tree-sitter/tree-sitter-c/b780e47fc780ddc8da13afa35a3f4ed5c157823d/queries/highlights.scm
+queries/tree-sitter-cpp@0.23.4/highlights.scm 52136576a9a9dacd9e95a8de0f351689bf46140738572ab4e9f24c9278e6b458 https://raw.githubusercontent.com/tree-sitter/tree-sitter-cpp/f41e1a044c8a84ea9fa8577fdd2eab92ec96de02/queries/highlights.scm
+queries/tree-sitter-go@0.25.0/highlights.scm 81182c986547eba7fa6316e82dfd621fb13b8fc89efac85432aee51a48ed0896 https://raw.githubusercontent.com/tree-sitter/tree-sitter-go/1547678a9da59885853f5f5cc8a99cc203fa2e2c/queries/highlights.scm
+queries/tree-sitter-javascript@0.23.1/highlights-jsx.scm 0cad1712acaf40804bc5dc7c8476858752c1f549cdf7d8c63c747317be0f8fa6 https://raw.githubusercontent.com/tree-sitter/tree-sitter-javascript/3a837b6f3658ca3618f2022f8707e29739c91364/queries/highlights-jsx.scm
+queries/tree-sitter-javascript@0.23.1/highlights.scm d3630ae6dc9b2b27b230b5f8bb92b05cd491fb12bff353dae62a0a6d780461ee https://raw.githubusercontent.com/tree-sitter/tree-sitter-javascript/3a837b6f3658ca3618f2022f8707e29739c91364/queries/highlights.scm
+queries/tree-sitter-javascript@0.25.0/highlights-jsx.scm 0cad1712acaf40804bc5dc7c8476858752c1f549cdf7d8c63c747317be0f8fa6 https://raw.githubusercontent.com/tree-sitter/tree-sitter-javascript/44c892e0be055ac465d5eeddae6d3e194424e7de/queries/highlights-jsx.scm
+queries/tree-sitter-javascript@0.25.0/highlights-params.scm bbe7a58cacfb1c954cb0eab44779fd80421ed59b762b975723447207635de50d https://raw.githubusercontent.com/tree-sitter/tree-sitter-javascript/44c892e0be055ac465d5eeddae6d3e194424e7de/queries/highlights-params.scm
+queries/tree-sitter-javascript@0.25.0/highlights.scm d3630ae6dc9b2b27b230b5f8bb92b05cd491fb12bff353dae62a0a6d780461ee https://raw.githubusercontent.com/tree-sitter/tree-sitter-javascript/44c892e0be055ac465d5eeddae6d3e194424e7de/queries/highlights.scm
+queries/tree-sitter-json@0.24.8/highlights.scm 0511524465b56aed122580792254e68b6abbbfde7119f1d02b135acbe278233f https://raw.githubusercontent.com/tree-sitter/tree-sitter-json/ee35a6ebefcef0c5c416c0d1ccec7370cfca5a24/queries/highlights.scm
+queries/tree-sitter-lua@0.5.0/highlights.scm d2625fb712357f86386878602d18845f9f3e90fee81f02a5ecd87be6512918d1 https://raw.githubusercontent.com/tree-sitter-grammars/tree-sitter-lua/10fe0054734eec83049514ea2e718b2a56acd0c9/queries/highlights.scm
+queries/tree-sitter-python@0.25.0/highlights.scm a6708f209381618e2b398972c8f1ccd892f0c064eab35a2a3f911c3e22e79a7e https://raw.githubusercontent.com/tree-sitter/tree-sitter-python/293fdc02038ee2bf0e2e206711b69c90ac0d413f/queries/highlights.scm
+queries/tree-sitter-rust@0.24.2/highlights.scm 0f0343107f14a7690157f51090a979eb8f8bfe4eada7c61763ddb4c54b1311d1 https://raw.githubusercontent.com/tree-sitter/tree-sitter-rust/77a3747266f4d621d0757825e6b11edcbf991ca5/queries/highlights.scm
+queries/tree-sitter-typescript@0.23.2/highlights.scm e0c35adb819127bfd4f853fac5419e7d8ba44760246201d04a4a5ce0228a10c5 https://raw.githubusercontent.com/tree-sitter/tree-sitter-typescript/f975a621f4e7f532fe322e13c4f79495e0a7b2e7/queries/highlights.scm

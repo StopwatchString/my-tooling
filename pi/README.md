@@ -86,14 +86,27 @@ servers every machine should have here.
   permission mode (`modes.ts`) sits at the right; other extension statuses
   still get a second line. The task view (`tasks/`) ends with the same line
   for the agent it shows.
-- `extensions/code-blocks.ts` (experimental): code blocks in markdown drawn
+- `extensions/code-blocks/` (experimental): code blocks in markdown drawn
   as a tinted panel with the language in its top border instead of ```
   fences: syntax highlighting, line numbers (blocks of more than one line),
   indent guides, brackets coloured by depth (unmatched ones red), long lines
   wrapped inside the panel. Inline `code` gets the same tint behind it.
-  Copying a block from the terminal takes the borders and numbers along.
-  pi has no hook for this, so it patches pi-tui's `Markdown` (check after a
-  pi upgrade); delete the file to go back to pi's fences.
+  Highlighting comes from tree-sitter (`treesitter.ts`) for bash, C, C++,
+  Go, JavaScript, JSON, Lua, Python, Rust, TSX and TypeScript, and from pi's
+  highlight.js for anything else (and for the moment after start-up while
+  the grammars load). Copying a block from the terminal takes the borders
+  and numbers along. pi has no hook for this, so it patches pi-tui's
+  `Markdown` (check after a pi upgrade); delete the directory to go back to
+  pi's fences.
+  - `vendor/` holds the pinned tree-sitter files: web-tree-sitter 0.27.0,
+    each grammar's release `.wasm`, its highlight queries and licence (all
+    MIT, about 11 MB). `vendor/manifest` lists each file with its sha256 and
+    source; `vendor/fetch.sh` fetches and checks them (`--check` only
+    checks, offline). pi reads the checked-in copies and passes them to
+    tree-sitter as bytes: no code is fetched or sent anywhere at runtime.
+  - To add a language: put its `.wasm`, `highlights.scm` and `LICENSE`
+    lines (pinned to a release commit) in the manifest, run `fetch.sh`, and
+    add it to `GRAMMARS` (and `ALIASES`) in `treesitter.ts`.
 - `extensions/context-bar.ts` (experimental): a bar the width of the
   terminal above the footer's line that fills with the context, shading from
   green through yellow (70%) to red (90%). The task view shows it for an

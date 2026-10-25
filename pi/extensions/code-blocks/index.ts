@@ -9,9 +9,12 @@
  *   ╰───────────────────────────────────────────────╯
  *
  * - Event `session_start`: keeps pi's UI for the theme (TUI only); without
- *   it (print mode) pi's own rendering stays.
+ *   it (print mode) pi's own rendering stays. Starts loading the tree-sitter
+ *   grammars, and redraws markdown each time one is ready.
  *
- * Inside the panel: pi's syntax highlighting, line numbers (blocks of more
+ * Inside the panel: tree-sitter highlighting for the languages pinned in
+ * `vendor/` (`treesitter.ts`: bash, c, cpp, go, javascript, json, lua,
+ * python, rust, tsx, typescript), pi's highlight.js for the rest, line numbers (blocks of more
  * than one line), indent guides, and brackets coloured by depth (VS Code's
  * bracket-pair colours; an unmatched one in the error colour). Brackets in
  * strings and comments are left alone, by a rough per-language scan. Long
@@ -19,14 +22,19 @@
  *
  * pi has no hook for this, so it patches pi-tui's exported Markdown
  * component's private `renderToken` for `code` tokens. The original is kept
- * on the prototype so /reload doesn't wrap the patch twice. Check it after a
- * pi upgrade. Delete this file to go back to pi's fences.
+ * on the prototype so /reload doesn't wrap the patch twice; `render` is
+ * patched too, to drop a Markdown's cache once a grammar has loaded. Check
+ * them after a pi upgrade. Delete this directory to go back to pi's fences.
  */
 import type { ExtensionAPI, ExtensionUIContext, Theme } from "@earendil-works/pi-coding-agent";
 import { highlightCode } from "@earendil-works/pi-coding-agent";
 import { backgroundAnsi, foregroundAnsi, Markdown, mixColors, parseColor, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import type { TUI } from "@earendil-works/pi-tui";
+import { highlight, load } from "./treesitter.ts";
 
 const ORIGINAL = Symbol.for("my-tooling.code-blocks.renderToken");
+const ORIGINAL_RENDER = Symbol.for("my-tooling.code-blocks.render");
+const GENERATION = Symbol.for("my-tooling.code-blocks.generation");
 const TINTED = Symbol.for("my-tooling.code-blocks.tinted");
 // How far the panel's background moves from the terminal's toward the text colour.
 const TINT = 0.08;
@@ -49,10 +57,16 @@ type MarkdownInternals = {
 	theme: { code: (text: string) => string };
 	defaultTextStyle?: { bgColor?: unknown };
 	renderToken(token: Token, width: number, nextTokenType?: string, styleContext?: unknown): string[];
+	render(width: number): string[];
+	invalidate(): void;
 	[TINTED]?: true;
+	[GENERATION]?: number;
 };
 
 let ui: ExtensionUIContext | undefined;
+let screen: TUI | undefined;
+// Goes up each time a grammar loads, so markdown drawn before that redraws.
+let generation = 0;
 
 /** Where each bracket outside strings and comments sits, line by line, and its depth (-1: unmatched). */
 function scanBrackets(lines: string[], lang: string): Map<number, number>[] {
@@ -150,7 +164,8 @@ function panelBackground(theme: Theme): string {
 function renderPanel(token: Token, width: number, theme: Theme): string[] {
 	const lang = (token.lang ?? "").trim().split(/\s/)[0]!.toLowerCase();
 	const raw = token.text.replace(/\t/g, TAB).split("\n");
-	const highlighted = highlightCode(raw.join("\n"), lang || undefined);
+	const code = raw.join("\n");
+	const highlighted = highlight(code, lang, theme) ?? highlightCode(code, lang || undefined);
 	const border = (s: string) => theme.fg("mdCodeBlockBorder", s);
 	const bg = panelBackground(theme);
 	const mode = theme.getColorMode();
@@ -196,8 +211,20 @@ function renderPanel(token: Token, width: number, theme: Theme): string[] {
 	return out;
 }
 
-const proto = Markdown.prototype as unknown as MarkdownInternals & { [ORIGINAL]?: MarkdownInternals["renderToken"] };
+const proto = Markdown.prototype as unknown as MarkdownInternals & {
+	[ORIGINAL]?: MarkdownInternals["renderToken"];
+	[ORIGINAL_RENDER]?: MarkdownInternals["render"];
+};
 const renderToken = (proto[ORIGINAL] ??= proto.renderToken);
+const render = (proto[ORIGINAL_RENDER] ??= proto.render);
+
+proto.render = function (this: MarkdownInternals, width) {
+	if (this[GENERATION] !== generation) {
+		this[GENERATION] = generation;
+		this.invalidate();
+	}
+	return render.call(this, width);
+};
 
 proto.renderToken = function (this: MarkdownInternals, token, width, nextTokenType, styleContext) {
 	const theme = ui?.theme;
@@ -223,5 +250,14 @@ export default function (pi: ExtensionAPI) {
 	pi.on("session_start", async (_event, ctx) => {
 		if (ctx.mode !== "tui") return;
 		ui = ctx.ui;
+		// An empty widget, only to get the TUI for redraws.
+		ctx.ui.setWidget("code-blocks", (tui) => {
+			screen = tui;
+			return { render: () => [], invalidate() {} };
+		});
+		load(() => {
+			generation++;
+			screen?.requestRender();
+		});
 	});
 }

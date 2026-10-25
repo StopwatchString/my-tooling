@@ -48,7 +48,10 @@ method name. Run `./dev-setup.sh` if `.pi-sdk` is missing.
 - Only import host-provided packages (`@earendil-works/pi-coding-agent`,
   `@earendil-works/pi-ai`, `@earendil-works/pi-agent-core`, `@earendil-works/pi-tui`,
   `typebox`) and Node built-ins (`node:*`). Use `import type` for types only.
-  Ask before adding any other dependency.
+  Ask before adding any other dependency. The one approved exception is
+  web-tree-sitter and its grammars, vendored and pinned (with sha256s) in
+  `extensions/code-blocks/vendor/`; never fetch anything at runtime, and
+  never send code anywhere.
 - Tabs for indentation, double quotes, semicolons (match `home-models.ts`).
 - When adding or removing a resource, update the list in `README.md`.
 - Secrets never go in this repo. `auth.json`, `models-store.json`, `sessions/`,
@@ -85,8 +88,8 @@ The Claude Code look and the agent features (`tools.ts`, `tasks/`,
   `tmux capture-pane -p` (`-e` keeps colours). The symlinks are live, so
   `/reload` picks up edits. Kill the session when done.
 - **Patched pi internals:** `user-message.ts`, `assistant-message.ts` and
-  `working.ts` patch exported component prototypes, `code-blocks.ts` the
-  private `renderToken` of pi-tui's `Markdown`; `tasks/shells.ts`
+  `working.ts` patch exported component prototypes, `code-blocks/` the
+  private `renderToken` and `render` of pi-tui's `Markdown`; `tasks/shells.ts`
   replaces the built-in `bash` tool. Recheck them after a pi upgrade.
 - **Keys taken from pi:** shift+tab (`modes.ts`, was thinking-level cycling)
   and ↓ in an empty prompt (`tasks/`). Both use `ctx.ui.onTerminalInput`, not
@@ -104,6 +107,9 @@ The Claude Code look and the agent features (`tools.ts`, `tasks/`,
 - **Colours copied from Claude Code** (themes, diff palette in `tools.ts`)
   were read out of its binary (`strings` on `~/.local/share/claude/versions/*`);
   do the same when matching something new rather than guessing.
+- **Shell gotcha:** in zsh, `path` is tied to `$PATH`, so `read -r path`
+  in a script run by zsh wipes the command search path. Don't name
+  variables `path` (or `status`, `argv`) in scripts meant for both shells.
 - **Open ideas:** safe mode checks read-only calls too (slower; Claude Code
   skips them); read-only mode blocks all bash, even read-only commands.
 
