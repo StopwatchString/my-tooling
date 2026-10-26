@@ -22,13 +22,32 @@ Project-level AGENTS.md / CLAUDE.md files take precedence for project specifics.
   destructive.
 - Run the relevant checks before calling work done.
 - In a git repo, implement in a worktree by default, not in the main
-  checkout: `git worktree add <repo>/worktrees/<name> -b <branch>`. Keep
+  checkout, so several agents can work on one repo at once:
+  `git worktree add <repo>/worktrees/<name> -b <branch>`. Keep
   `worktrees/` out of git status with a line in
-  `$(git rev-parse --git-common-dir)/info/exclude`, not `.gitignore`. Leave
-  the worktree in place when done; the owner merges and removes it. Skip
+  `$(git rev-parse --git-common-dir)/info/exclude`, not `.gitignore`. Skip
   this only when told to, or when the repo's own AGENTS.md says otherwise.
-- Commit only when told (a repo's own AGENTS.md may grant standing
-  permission). Never push unless asked.
+- When the work in a worktree is done and its checks pass, commit it and
+  merge it back into the main checkout's branch yourself. Only one agent
+  merges at a time, under a lock:
+  1. Take the lock: `mkdir "$(git rev-parse --git-common-dir)/merge.lock"`
+     (atomic; it fails while another agent holds it). Retry until it
+     succeeds. If it stays taken for more than ~15 minutes, ask the user
+     rather than removing it.
+  2. Rebase onto the up-to-date branch: `git rebase <main branch>` in the
+     worktree. Resolve simple conflicts; for anything unclear,
+     `git rebase --abort`, release the lock and ask. If the rebase brought
+     in new commits, run the checks again.
+  3. Fast-forward the main checkout:
+     `git -C <main checkout> merge --ff-only <branch>`. If it refuses
+     (e.g. uncommitted changes there touch the same files), release the
+     lock and ask; never force it.
+  4. Release the lock: `rmdir "$(git rev-parse --git-common-dir)/merge.lock"`,
+     also on every failure path.
+  5. Remove the worktree and branch: `git worktree remove <path>`,
+     `git branch -d <branch>`.
+- Outside that flow, commit only when told (a repo's own AGENTS.md may
+  grant standing permission). Never push unless asked.
 - Never mention the model or agent in commit messages: no `Co-Authored-By`
   trailer, "Generated with" line or model name.
 
