@@ -186,7 +186,10 @@ servers every machine should have here.
     model first, with the user's latest messages, and runs only if it answers
     ALLOW; a block reason goes back to the agent. If the check fails, pi asks
     you. `/safe-model` picks the checking model from pi's models (default: the
-    session's); the choice is saved in `~/.pi/agent/modes.json`.
+    session's); the choice is saved in `~/.pi/agent/modes.json`. The footer
+    shows the checking model and how many calls it let run and blocked
+    (`⏵⏵ safe mode · swift · ✓ 12 ✗ 1`), counted across subagents since pi
+    started.
   - `⏵⏵ unsafe` (red): stock pi, nothing checked. Every start begins here.
   The mode applies to subagents too, survives `/reload`, and is added to the
   system prompt in read-only and safe mode.

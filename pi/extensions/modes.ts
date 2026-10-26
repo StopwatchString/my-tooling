@@ -10,6 +10,7 @@
  * - Event `tool_call`: blocks calls the mode doesn't allow, with the reason
  *   for the model. Calls a codemode script makes come through here too.
  * - Event `before_agent_start`: tells the model the mode (not in unsafe).
+ * - Event `model_select`: updates the status (it names the checking model).
  * - Event `session_start`: sets the footer status (`footer.ts` puts the
  *   status keyed `mode` on the right) and takes shift+tab before the editor,
  *   which replaces pi's thinking-level cycling on that key.
@@ -18,8 +19,12 @@
  *   safe mode, any model pi has; by default the session's own. Saved in
  *   `modes.json` in pi's agent dir.
  *
- * The mode is shared by every session in the process, so subagents follow
- * it too, and survives /reload. Each start begins in unsafe mode.
+ * In safe mode the status also names the checking model and counts the
+ * calls it let run and blocked, `⏵⏵ safe mode · swift · ✓ 12 ✗ 1`.
+ *
+ * The mode and the counts are shared by every session in the process, so
+ * subagents follow the mode and add to the counts, and both survive /reload.
+ * Each start begins in unsafe mode with no counts.
  */
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { Api, Model } from "@earendil-works/pi-ai";
@@ -78,6 +83,9 @@ Answer with exactly one line: ALLOW, or BLOCK: <short reason, addressed to the a
 interface State {
 	mode: Mode;
 	listeners: Set<() => void>;
+	/** Safe-mode calls that ran and that were blocked. */
+	allowed?: number;
+	blocked?: number;
 }
 
 const KEY = Symbol.for("my-tooling.modes");
@@ -96,8 +104,10 @@ function readConfig(): { safeModel?: string } {
 
 function setMode(mode: Mode): void {
 	state.mode = mode;
-	for (const listener of state.listeners) listener();
+	notify();
 }
+
+const notify = () => state.listeners.forEach((l) => l());
 
 const clip = (text: string, max: number) => (text.length <= max ? text : `${text.slice(0, max)} [… cut]`);
 
@@ -163,10 +173,25 @@ export default function (pi: ExtensionAPI) {
 	let checking = 0;
 	let cleanup: (() => void)[] = [];
 
-	const status = (theme: Theme) => {
+	const status = (ctx: ExtensionContext) => {
+		const theme = ctx.ui.theme;
 		const look = LOOKS[state.mode];
+		const sep = theme.fg("dim", " · ");
+		let safe = "";
+		if (state.mode === "safe") {
+			const model = checkModel(ctx);
+			safe = `${model ? `${sep}${theme.fg("dim", model.id)}` : ""}${sep}` +
+				`${theme.fg("success", `✓ ${state.allowed ?? 0}`)} ${theme.fg("error", `✗ ${state.blocked ?? 0}`)}`;
+		}
 		const busy = checking ? theme.fg("dim", ` · checking ${checking > 1 ? `${checking} calls` : "a call"}…`) : "";
-		return `${theme.fg(look.color, `${look.symbol} ${state.mode} mode`)}${busy}`;
+		return `${theme.fg(look.color, `${look.symbol} ${state.mode} mode`)}${safe}${busy}`;
+	};
+
+	/** Counts a safe-mode call that ran (no result) or was blocked. */
+	const tally = <T extends { block: true } | undefined>(result: T): T => {
+		if (result) state.blocked = (state.blocked ?? 0) + 1;
+		else state.allowed = (state.allowed ?? 0) + 1;
+		return result;
 	};
 
 	const readOnly = (toolName: string) => {
@@ -192,20 +217,20 @@ export default function (pi: ExtensionAPI) {
 			};
 		}
 		checking++;
-		state.listeners.forEach((l) => l());
+		notify();
 		try {
 			const reason = await check(ctx, event.toolName, event.input);
-			return reason ? { block: true, reason: `Safe mode blocked this call: ${reason}` } : undefined;
+			return tally(reason ? { block: true as const, reason: `Safe mode blocked this call: ${reason}` } : undefined);
 		} catch (error) {
 			const why = error instanceof Error ? error.message : String(error);
 			// Fail closed: ask the user, or block without one.
 			if (ctx.hasUI && (await ctx.ui.confirm("Safe mode could not check this call", `${event.toolName}: ${why}\n\nRun it anyway?`))) {
-				return undefined;
+				return tally(undefined);
 			}
-			return { block: true, reason: `Safe mode could not check this call (${why}), so it was blocked.` };
+			return tally({ block: true as const, reason: `Safe mode could not check this call (${why}), so it was blocked.` });
 		} finally {
 			checking--;
-			state.listeners.forEach((l) => l());
+			notify();
 		}
 	});
 
@@ -246,13 +271,14 @@ export default function (pi: ExtensionAPI) {
 			if (choice === session) delete config.safeModel;
 			else config.safeModel = choice;
 			writeFileSync(configPath(), `${JSON.stringify(config, null, 2)}\n`);
+			notify();
 			ctx.ui.notify(`Safe mode checks calls with ${config.safeModel ?? "the session model"}`, "info");
 		},
 	});
 
 	pi.on("session_start", async (_event, ctx) => {
 		if (ctx.mode !== "tui") return;
-		const update = () => ctx.ui.setStatus("mode", status(ctx.ui.theme));
+		const update = () => ctx.ui.setStatus("mode", status(ctx));
 		update();
 		state.listeners.add(update);
 		const unsubscribe = ctx.ui.onTerminalInput((data) => {
@@ -263,6 +289,9 @@ export default function (pi: ExtensionAPI) {
 		});
 		cleanup = [unsubscribe, () => state.listeners.delete(update), () => ctx.ui.setStatus("mode", undefined)];
 	});
+
+	// The checking model defaults to the session's.
+	pi.on("model_select", async () => notify());
 
 	pi.on("session_shutdown", async () => {
 		for (const fn of cleanup) fn();
