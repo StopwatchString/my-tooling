@@ -12,8 +12,9 @@
  * 70% and red from 90%. The status keyed `mode` (`modes.ts`) goes at the
  * right of the line; other statuses set by extensions (ctx.ui.setStatus) go
  * on a second line, as in pi's footer. The same line, for an agent, is at the
- * bottom of the task view (`tasks/ui.ts`), through `globalThis`. While
- * `context-bar.ts` is loaded, its bar goes above the line.
+ * bottom of the task view (`tasks/ui.ts`), through `globalThis`, where
+ * `context-bar.ts` (while loaded) puts its bar above it; in the main view,
+ * `editor.ts` draws that bar as the prompt's rules.
  */
 import { homedir, hostname, userInfo } from "node:os";
 import type { ExtensionAPI, Theme } from "@earendil-works/pi-coding-agent";
@@ -41,11 +42,9 @@ export interface StatusInfo {
 }
 
 type StatusLine = (info: StatusInfo, width: number, theme: Theme) => string;
-/** Set by `context-bar.ts` while it is loaded. */
-type Bar = (percent: number | null | undefined, width: number, theme: Theme) => string;
 
 const KEY = Symbol.for("my-tooling.footer");
-const shared = globalThis as typeof globalThis & { [KEY]?: { line?: StatusLine; bar?: Bar; mode?: string } };
+const shared = globalThis as typeof globalThis & { [KEY]?: { line?: StatusLine; mode?: string } };
 const state = (shared[KEY] ??= {});
 
 /** Context fill, yellow from 70% and red from 90%; "" if unknown. */
@@ -93,7 +92,6 @@ export default function (pi: ExtensionAPI) {
 					state.mode = all.get("mode");
 					const percent = ctx.getContextUsage()?.percent;
 					const lines = [
-						...(state.bar ? [state.bar(percent, width, theme)] : []),
 						statusLine({ cwd: ctx.cwd, model: ctx.model, thinking: pi.getThinkingLevel(), percent }, width, theme),
 					];
 					const statuses = [...all.entries()]

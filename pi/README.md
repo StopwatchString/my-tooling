@@ -125,17 +125,18 @@ servers every machine should have here.
   - To add a language: put its `.wasm`, `highlights.scm` and `LICENSE`
     lines (pinned to a release commit) in the manifest, run `fetch.sh`, and
     add it to `GRAMMARS` (and `ALIASES`) in `treesitter.ts`.
-- `extensions/context-bar.ts` (experimental): a bar the width of the
-  terminal above the footer's line that fills with the context, shading from
-  green through yellow (70%) to red (90%). The task view shows it for an
-  agent. `/context-bar` toggles it (`on`/`off` to set it), saved in
+- `extensions/context-bar.ts` (experimental): turns the prompt's rules
+  (above and below the input) into bars that fill with the context, shading
+  from green through yellow (70%) to red (90%). The task view shows it above
+  an agent's status line. `/context-bar` toggles it (`on`/`off` to set it), saved in
   `~/.pi/agent/context-bar.json` for later sessions; on by default. Delete
-  the file and `/reload` to drop it; the footer draws it only while it is
+  the file and `/reload` to drop it; the editor draws it only while it is
   loaded.
 - `extensions/editor.ts`: the input box in the style of Claude Code's prompt:
   grey rules above and below (instead of rules coloured by thinking level)
   and a `>` before the text. In bash mode (`!`), the rules and the `>` take the
-  bash-mode colour. Esc twice clears the text, as in Claude Code (the first
+  bash-mode colour. With `context-bar.ts` loaded, both rules are its
+  context bar (except in bash mode). Esc twice clears the text, as in Claude Code (the first
   marks the rule "Esc again to clear"; ↑ brings the text back); while pi
   works, Esc still interrupts. pi's `editorPaddingX` setting is ignored.
 - `extensions/user-message.ts`: sent messages in the style of Claude Code's

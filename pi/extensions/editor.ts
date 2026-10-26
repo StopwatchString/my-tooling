@@ -18,7 +18,7 @@
  * bash-mode colour, as Claude Code does. Wrapped lines are indented under the
  * text.
  */
-import { CustomEditor, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { CustomEditor, type ExtensionAPI, type Theme } from "@earendil-works/pi-coding-agent";
 import { matchesKey, type TUI, visibleWidth } from "@earendil-works/pi-tui";
 
 // Columns before the text; the first visible line puts the prompt there.
@@ -26,6 +26,11 @@ const INDENT = 2;
 // How soon the second Esc must follow the first to clear the text.
 const DOUBLE_ESC_MS = 800;
 const CLEAR_HINT = " Esc again to clear ";
+
+/** Set by `context-bar.ts` while it is loaded. */
+type Bar = (percent: number | null | undefined, width: number, theme: Theme) => string;
+const FOOTER = Symbol.for("my-tooling.footer");
+const shared = globalThis as typeof globalThis & { [FOOTER]?: { bar?: Bar } };
 
 export default function (pi: ExtensionAPI) {
 	pi.on("session_start", async (_event, ctx) => {
@@ -39,6 +44,20 @@ export default function (pi: ExtensionAPI) {
 			// pi applies its editorPaddingX setting; the prompt needs INDENT.
 			setPaddingX(_padding: number): void {
 				super.setPaddingX(INDENT);
+			}
+
+			protected renderTopBorder(width: number, hidden: number): string {
+				return this.contextBar(width, hidden) ?? super.renderTopBorder(width, hidden);
+			}
+
+			protected renderBottomBorder(width: number, hidden: number): string {
+				return this.contextBar(width, hidden) ?? super.renderBottomBorder(width, hidden);
+			}
+
+			private contextBar(width: number, hidden: number): string | undefined {
+				const bar = shared[FOOTER]?.bar;
+				if (!bar || hidden > 0 || this.getText().trimStart().startsWith("!")) return undefined;
+				return bar(ctx.getContextUsage()?.percent, width, ctx.ui.theme);
 			}
 
 			render(width: number): string[] {

@@ -108,7 +108,8 @@ The Claude Code look and the agent features (`tools.ts`, `tasks/`,
   at the right of its line; `modes.ts` sets it. `footer.ts` also shares its
   line builder as `globalThis[Symbol.for("my-tooling.footer")].line`, which
   the task view (`tasks/ui.ts`) calls for an agent; `context-bar.ts` adds
-  `.bar` there while loaded. Extensions don't import each other's files.
+  `.bar` there while loaded, which `editor.ts` draws as the prompt's rules
+  and the task view above its status line. Extensions don't import each other's files.
 - **Colours copied from Claude Code** (themes, diff palette in `tools.ts`)
   were read out of its binary (`strings` on `~/.local/share/claude/versions/*`);
   do the same when matching something new rather than guessing.

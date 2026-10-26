@@ -1,15 +1,16 @@
 /**
- * Context bar: a line the width of the terminal, above the footer's status
- * line, that fills as the context does.
+ * Context bar: the rules above and below the prompt (`editor.ts`), filling
+ * as the context does, so it takes no line of its own.
  *
  *   ━━━━━━━━━━━━━━━━━━━━━━╸───────────────────────────────────────────
  *
  * - Command `/context-bar [on|off]`: shows or hides the bar (no argument
  *   toggles it). The choice is saved in `context-bar.json` in pi's agent
  *   dir, so it holds for later sessions; the bar is on by default.
- * - Event `session_start`: hands the bar to `footer.ts` (TUI only, when on),
- *   which draws it above its line, as the task view (`tasks/ui.ts`) does
- *   for an agent.
+ * - Event `session_start`: shares the bar (TUI only, when on) through
+ *   `globalThis[Symbol.for("my-tooling.footer")].bar`. `editor.ts` draws it
+ *   as both rules of the prompt; the task view (`tasks/ui.ts`) draws it
+ *   above an agent's status line, since it has no prompt.
  * - Event `session_shutdown`: takes it back, so deleting this file and
  *   running /reload removes the bar.
  *
@@ -85,7 +86,7 @@ export default function (pi: ExtensionAPI) {
 	};
 
 	pi.registerCommand("context-bar", {
-		description: "Show or hide the context bar above the footer (saved for later sessions)",
+		description: "Show or hide the context bar in the prompt's rules (saved for later sessions)",
 		getArgumentCompletions: (prefix) =>
 			["on", "off"].filter((v) => v.startsWith(prefix)).map((v) => ({ value: v, label: v })),
 		handler: async (args, ctx) => {
